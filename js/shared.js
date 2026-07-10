@@ -195,45 +195,71 @@ export const Sound={
   boing(){ this.blip(150,700,0.28,'triangle',0.13); },
 };
 
-// ---------------- input (keyboard + gamepad + touch) ----------------
-export const Input={
-  l:false,r:false,u:false,d:false,jump:false,spin:false,run:false,
-  jumpP:false,spinP:false,startP:false,musicP:false,anyP:false,
-  uP:false,dP:false,lP:false,rP:false,backP:false,
-  padOn:false,pad:null,_k:{},_pPrev:[],_navPrev:{},
-  touch:{l:false,r:false,jump:false,spin:false,run:false},
+// ---------------- input (keyboard + gamepad + touch, per player) ----------------
+/** Keymaps: 'merged' = single-player (all keys work); 'p1'/'p2' = couch co-op splits. */
+export const KEYMAPS={
+  merged:{l:['ArrowLeft','KeyA'],r:['ArrowRight','KeyD'],u:['ArrowUp','KeyW'],d:['ArrowDown','KeyS'],
+          jump:['KeyZ','Space','ArrowUp','KeyW'],spin:['KeyC','KeyB'],run:['KeyX','ShiftLeft','ShiftRight']},
+  p1:{l:['ArrowLeft'],r:['ArrowRight'],u:['ArrowUp'],d:['ArrowDown'],
+      jump:['KeyZ','ArrowUp'],spin:['KeyC'],run:['KeyX']},
+  p2:{l:['KeyA'],r:['KeyD'],u:['KeyW'],d:['KeyS'],
+      jump:['Space','KeyW'],spin:['KeyQ'],run:['ShiftLeft','KeyE']},
+};
+export class PlayerInput{
+  constructor(opts={}){
+    this.keymap=opts.keymap||'merged';
+    this.padIndex=opts.pad===undefined?'any':opts.pad;  // 'any' | number | null
+    this.useTouch=!!opts.touch;
+    this.l=this.r=this.u=this.d=this.jump=this.spin=this.run=false;
+    this.jumpP=this.spinP=this.startP=this.musicP=this.anyP=false;
+    this.uP=this.dP=this.lP=this.rP=this.backP=false;
+    this.padOn=false; this.pad=null;
+    this._k={}; this._pPrev=[]; this._navPrev={};
+    this.touch={l:false,r:false,jump:false,spin:false,run:false};
+    PlayerInput.instances.push(this);
+  }
+  configure(opts){
+    if(opts.keymap!==undefined) this.keymap=opts.keymap;
+    if(opts.pad!==undefined) this.padIndex=opts.pad;
+    if(opts.touch!==undefined) this.useTouch=opts.touch;
+    this._k={}; this._pPrev=[];
+  }
   key(e,down){
     this._k[e.code]=down;
     if(down&&!e.repeat){
-      const c=e.code;
-      if(c==='KeyZ'||c==='Space'||c==='ArrowUp'||c==='KeyW') this.jumpP=true;
-      if(c==='KeyC'||c==='KeyB') this.spinP=true;
+      const km=KEYMAPS[this.keymap], c=e.code;
+      if(km.jump.includes(c)) this.jumpP=true;
+      if(km.spin.includes(c)) this.spinP=true;
       if(c==='Enter'||c==='KeyP') this.startP=true;
       if(c==='Escape') this.backP=true;
       if(c==='KeyM') this.musicP=true;
-      if(c==='ArrowUp'||c==='KeyW') this.uP=true;
-      if(c==='ArrowDown'||c==='KeyS') this.dP=true;
-      if(c==='ArrowLeft'||c==='KeyA') this.lP=true;
-      if(c==='ArrowRight'||c==='KeyD') this.rP=true;
+      if(km.u.includes(c)) this.uP=true;
+      if(km.d.includes(c)) this.dP=true;
+      if(km.l.includes(c)) this.lP=true;
+      if(km.r.includes(c)) this.rP=true;
       this.anyP=true;
     }
-  },
-  press(name){ // touch edge events
+  }
+  press(name){
     if(name==='jump') this.jumpP=true;
     if(name==='spin') this.spinP=true;
     if(name==='start') this.startP=true;
     this.anyP=true;
-  },
-  poll(){
-    const k=this._k, T=this.touch;
-    let l=k.ArrowLeft||k.KeyA||T.l, r=k.ArrowRight||k.KeyD||T.r;
-    let u=k.ArrowUp||k.KeyW, d=k.ArrowDown||k.KeyS;
-    let jump=k.KeyZ||k.Space||k.ArrowUp||k.KeyW||T.jump;
-    let spin=k.KeyC||k.KeyB||T.spin;
-    let run=k.KeyX||k.ShiftLeft||k.ShiftRight||T.run;
-    let gp=null;
+  }
+  _padObj(){
     const pads=navigator.getGamepads?navigator.getGamepads():[];
-    for(const p of pads){ if(p&&p.connected){ gp=p; break; } }
+    if(this.padIndex==='any'){ for(const p of pads) if(p&&p.connected) return p; return null; }
+    if(this.padIndex==null) return null;
+    const p=pads[this.padIndex];
+    return (p&&p.connected)?p:null;
+  }
+  poll(){
+    const k=this._k, km=KEYMAPS[this.keymap];
+    const T=this.useTouch?this.touch:{};
+    const anyK=list=>list.some(c=>k[c]);
+    let l=anyK(km.l)||T.l, r=anyK(km.r)||T.r, u=anyK(km.u), d=anyK(km.d);
+    let jump=anyK(km.jump)||T.jump, spin=anyK(km.spin)||T.spin, run=anyK(km.run)||T.run;
+    const gp=this._padObj();
     if(gp){
       this.padOn=true; this.pad=gp;
       const b=gp.buttons, ax=gp.axes, dz=0.28;
@@ -253,7 +279,6 @@ export const Input={
       if(edge(0)||edge(9)) this.anyP=true;
       this._pPrev=[]; for(let i=0;i<b.length;i++) this._pPrev[i]=b[i].pressed;
     } else { this.pad=null; }
-    // menu-navigation edges from held directions (covers stick + touch)
     const np=this._navPrev;
     if(u&&!np.u) this.uP=true;
     if(d&&!np.d) this.dP=true;
@@ -262,9 +287,16 @@ export const Input={
     np.u=u; np.d=d; np.l=l; np.r=r;
     this.l=!!l; this.r=!!r; this.u=!!u; this.d=!!d;
     this.jump=!!jump; this.spin=!!spin; this.run=!!run;
-  },
+  }
   clear(){ this.jumpP=this.spinP=this.startP=this.musicP=this.anyP=this.uP=this.dP=this.lP=this.rP=this.backP=false; }
-};
+}
+PlayerInput.instances=[];
+/** Route raw key events to every input instance (each filters by its keymap). */
+export function routeKey(e,down){ for(const i of PlayerInput.instances) i.key(e,down); }
+/** The primary input: menus + player 1 (all keys, first pad, touch). */
+export const Input=new PlayerInput({keymap:'merged',pad:'any',touch:true});
+/** Second local player for couch co-op (configured at session start). */
+export const Input2=new PlayerInput({keymap:'p2',pad:null,touch:false});
 
 export function rumble(strong,weak,ms){
   try{

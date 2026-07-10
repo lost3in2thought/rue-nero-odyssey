@@ -18,10 +18,23 @@ ghost parlors, prism peaks, geometric fortresses, and a star world.
 Every level hides **5 squeaky tennis balls** 🎾 (the dragon coins of
 this universe) alongside the cosmic-bone trail.
 
+**Multiplayer** 🐾🐾 — two ways to play together:
+
+- **Couch co-op**: both pups on one screen. P1 = arrows + Z/X/C (or
+  gamepad 1), P2 = WASD + Space/Q/E (or gamepad 2). The camera follows
+  the leader; a trailing pup gets catch-up zoomies, never left behind.
+- **Online co-op**: host a room, share the 4-letter code, and a friend
+  joins from anywhere — straight from the game link, phones included
+  (WebRTC via PeerJS; needs internet for the handshake). Each player
+  is their own pup with zero-lag local controls.
+
+In co-op the dream never ends — out of hearts just means a quick nap
+and right back to the zoomies.
+
 Level progress, best scores, and tennis-ball finds are saved locally.
 Finishing a dream unlocks the next one. Nobody ever gets hurt in this
-game — when the hearts run out, the dream just drifts home and the pup
-wakes up cozy.
+game — when the hearts run out (solo), the dream just drifts home and
+the pup wakes up cozy.
 
 ## Play it locally
 

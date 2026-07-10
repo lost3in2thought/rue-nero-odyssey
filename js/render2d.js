@@ -507,9 +507,9 @@ export const Render2D={
     }
     ctx.restore();
   },
-  charPal(){
-    const base=G.char.pal;
-    if(G.P.star>0){
+  charPal(p){
+    const base=p.char.pal;
+    if(p.star>0){
       const h=(G.gt*420)%360;
       return {...base,
         body:`hsl(${(h+180)%360},70%,88%)`, head:`hsl(${h},85%,66%)`,
@@ -519,10 +519,14 @@ export const Render2D={
     return base;
   },
   drawPlayer(){
-    const P=G.P, ctx=this.ctx;
+    for(const p of G.players) this.drawOneDog(p);
+  },
+  drawOneDog(P){
+    const ctx=this.ctx;
     if(P.inv>0&&Math.floor(G.gt*18)%2===0&&G.state==='play') return;
     const cx=P.x-G.camX+P.w/2, feet=P.y+P.h;
-    const pal=this.charPal(), shape=G.char.shape;
+    if(cx<-60||cx>W+60) return;
+    const pal=this.charPal(P), shape=P.char.shape;
     if(P.big){
       const g=ctx.createRadialGradient(cx,feet-20,4,cx,feet-20,40);
       g.addColorStop(0,`hsla(${(this.hue*4)%360},95%,70%,0.35)`);
@@ -538,10 +542,10 @@ export const Render2D={
       ctx.restore();
       return;
     }
-    this.drawDogSide(cx,feet,pal,shape,P.big,u);
+    this.drawDogSide(P,cx,feet,pal,shape,P.big,u);
   },
-  drawDogSide(cx,feet,pal,shape,big,u){
-    const P=G.P, ctx=this.ctx, gt=G.gt;
+  drawDogSide(P,cx,feet,pal,shape,big,u){
+    const ctx=this.ctx, gt=G.gt;
     const spd=Math.abs(P.vx);
     ctx.save();
     ctx.translate(cx,feet);

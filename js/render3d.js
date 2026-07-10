@@ -39,7 +39,7 @@ export const Render3D={
   view:null, renderer:null, scene:null, camera:null,
   rtScene:null, rtBloomA:null, rtBloomB:null, rtOut:null, rtPrev:null,
   worldGroup:null, actorGroup:null,
-  world:{}, dog:null, bonesMesh:null,
+  world:{}, dogs:[], bonesMesh:null,
   camPos:new THREE.Vector3(480,-270,545), camAim:new THREE.Vector3(480,-264,0),
   _v:new THREE.Vector3(), _m:new THREE.Matrix4(), _q:new THREE.Quaternion(), _e:new THREE.Euler(), _s:new THREE.Vector3(), _c:new THREE.Color(),
 
@@ -203,7 +203,9 @@ export const Render3D={
     this.worldGroup=new THREE.Group(); this.scene.add(this.worldGroup);
     this.actorGroup=new THREE.Group(); this.scene.add(this.actorGroup);
     this.buildWorld();
-    if(this.lastChar!==G.char.id){ this.buildDog(); }
+    // one rig per player, rebuilt if the roster or characters changed
+    for(const d of this.dogs){ this.scene.remove(d.root); this.disposeGroup(d.root); }
+    this.dogs=G.players.map(p=>this.buildDogFor(p.char));
     this.camPos.set(G.P.x+W/2,-270,545);
     this.camAim.set(G.P.x+W/2,-264,0);
   },
@@ -421,11 +423,9 @@ export const Render3D={
   },
 
   // ---------------- character rig ----------------
-  buildDog(){
-    if(this.dog&&this.dog.root){ this.scene.remove(this.dog.root); this.disposeGroup(this.dog.root); }
-    const cfg=G.char.rig;
-    this.lastChar=G.char.id;
-    const dog=this.dog={};
+  buildDogFor(char){
+    const cfg=char.rig;
+    const dog={charId:char.id};
     const root=new THREE.Group();
     const yaw=new THREE.Group(); root.add(yaw);
     const rig=new THREE.Group(); yaw.add(rig);
@@ -558,6 +558,7 @@ export const Render3D={
     dog.tail=tailPiv;
     dog.root=root; dog.yaw=yaw; dog.rig=rig; dog.headG=headG;
     this.scene.add(root);
+    return dog;
   },
 
   // ---------------- enemy / item rigs ----------------
@@ -921,18 +922,28 @@ export const Render3D={
         it._rig.userData.star.rotation.x+=0.07;
       }
     }
-    this.syncDog(t);
+    // sync every dog to its player
+    for(let i=0;i<G.players.length;i++){
+      let dog=this.dogs[i];
+      if(!dog||dog.charId!==G.players[i].char.id){
+        if(dog){ this.scene.remove(dog.root); this.disposeGroup(dog.root); }
+        dog=this.dogs[i]=this.buildDogFor(G.players[i].char);
+      }
+      this.syncDog(dog,G.players[i],t,i);
+    }
+    for(let i=G.players.length;i<this.dogs.length;i++){
+      this.scene.remove(this.dogs[i].root); this.disposeGroup(this.dogs[i].root);
+    }
+    this.dogs.length=Math.min(this.dogs.length,G.players.length);
     this.syncParticles();
     this.dogLight.position.set(P.x+P.w/2,-(P.y+P.h/2),70);
     this.dogLight.color.setHSL(((t*40)%360)/360,0.8,0.6);
     this.dogLight.intensity=2.6+G.trip*2.5+(P.star>0?4:0);
   },
-  syncDog(t){
-    const dog=this.dog, P=G.P;
-    if(!dog) return;
-    if(this.lastChar!==G.char.id) this.buildDog();
+  syncDog(dog,P,t,slot){
+    if(!dog||!P) return;
     const feetX=P.x+P.w/2, feetY=-(P.y+P.h);
-    dog.root.position.set(feetX,feetY,10);
+    dog.root.position.set(feetX,feetY,10+(slot||0)*6);
     const blink=P.inv>0&&Math.floor(G.gt*18)%2===0&&G.state==='play';
     dog.root.visible=!blink;
     const targetYaw=P.dir>0?0:Math.PI;

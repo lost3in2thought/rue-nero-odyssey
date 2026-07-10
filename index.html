@@ -128,12 +128,12 @@
     <div class="half"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 4 L18 12 L8 20 Z"/></svg></div>
   </div>
   <div id="padAct">
-    <div class="tbtn" id="tRun" data-tbtn="run"><span>RUN</span></div>
     <div class="tbtn" id="tSpin" data-tbtn="spin" aria-label="spin jump">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
         <path d="M20 12 A8 8 0 1 1 12 4"/><path d="M12 1 L12 7 L7 4 Z" fill="currentColor" stroke="none"/>
       </svg>
     </div>
+    <div class="tbtn" id="tRun" data-tbtn="run"><span>RUN</span></div>
     <div class="tbtn" id="tJump" data-tbtn="jump" aria-label="jump">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 L21 13 H15 V21 H9 V13 H3 Z"/></svg>
     </div>
@@ -152,8 +152,43 @@
     <p class="tag">two very good dogs chasing zoomies across the cosmos</p>
     <button class="mbtn" data-act="mode:classic">🎨 &nbsp;CLASSIC 2D — pixel dreams</button>
     <button class="mbtn" data-act="mode:odyssey">🌀 &nbsp;3D ODYSSEY — the deep dive</button>
+    <button class="mbtn" data-act="multi">🐾🐾 &nbsp;MULTIPLAYER — two good dogs</button>
     <button class="mbtn small" data-act="settings">⚙ settings</button>
     <p class="hint" id="mainHint"></p>
+  </div>
+
+  <div class="panel hidden" id="pMulti">
+    <h2>🐾🐾 two-player zoomies</h2>
+    <button class="mbtn" data-act="couch">🛋 &nbsp;couch co-op — share this screen</button>
+    <button class="mbtn" data-act="hostRoom">🌐 &nbsp;host an online room</button>
+    <button class="mbtn" data-act="joinRoom">🌐 &nbsp;join a friend's room</button>
+    <p class="hint">couch: P1 = arrows + Z/X/C or gamepad 1 · P2 = WASD + Space/Q/E or gamepad 2 · P2 plays the other pup<br>
+    online: share a 4-letter room code — each player is their own pup, phones welcome</p>
+    <button class="mbtn small" data-act="back">← back</button>
+  </div>
+
+  <div class="panel hidden" id="pModeSel">
+    <h2>choose the vibe</h2>
+    <button class="mbtn" data-act="mode:classic">🎨 &nbsp;CLASSIC 2D</button>
+    <button class="mbtn" data-act="mode:odyssey">🌀 &nbsp;3D ODYSSEY</button>
+    <button class="mbtn small" data-act="back">← back</button>
+  </div>
+
+  <div class="panel hidden" id="pHost">
+    <h2>🌐 room open</h2>
+    <div id="roomCode" style="font-size:clamp(38px,9vw,60px);letter-spacing:.25em;margin:12px 0;color:#ffd76e;font-weight:bold"></div>
+    <p class="tag">your friend picks “join a friend's room” and types this code</p>
+    <p id="hostStatus" class="hint"></p>
+    <button class="mbtn small" data-act="netCancel">← cancel</button>
+  </div>
+
+  <div class="panel hidden" id="pJoin">
+    <h2>🌐 join a room</h2>
+    <input id="joinCode" maxlength="4" placeholder="CODE" autocapitalize="characters" autocomplete="off" spellcheck="false"
+      style="font-size:clamp(30px,7vw,44px);letter-spacing:.25em;width:min(60vw,230px);text-align:center;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.3);border-radius:12px;color:#fff;padding:10px;font-family:inherit;text-transform:uppercase">
+    <br><button class="mbtn" data-act="joinGo">join the dream</button>
+    <p id="joinStatus" class="hint"></p>
+    <button class="mbtn small" data-act="netCancel">← cancel</button>
   </div>
 
   <div class="panel hidden" id="pChar">

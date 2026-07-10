@@ -2,8 +2,9 @@
    PAWS ENGINE — main orchestrator
    Menus · settings · touch UI · shared HUD · game loop
    ============================================================ */
-import {VIEW_W as W,VIEW_H as H,TAU,clamp,isMobile,Save,Sound,Input,bindTouch,LEVELS,WORLDS,CHARS,levelUnlocked} from './shared.js';
-import {G,loadLevel,update as logicUpdate} from './logic.js';
+import {VIEW_W as W,VIEW_H as H,TAU,clamp,isMobile,Save,Sound,Input,Input2,routeKey,bindTouch,LEVELS,WORLDS,CHARS,levelUnlocked} from './shared.js';
+import {G,loadLevel,update as logicUpdate,sumOf} from './logic.js';
+import {Net} from './net.js';
 import {Render2D,drawPortrait} from './render2d.js';
 import {Render3D} from './render3d.js';
 
@@ -16,7 +17,8 @@ let activeR=null;
 let panel='pMain', settingsReturn='pMain';
 let selItems=[], selIdx=0;
 let winShown=false, overShown=false;
-const PANELS=['pMain','pChar','pLevels','pPause','pWin','pOver','pSettings'];
+let pendingCoop=null;   // null | 'local' | 'host' | 'guest'
+const PANELS=['pMain','pMulti','pModeSel','pHost','pJoin','pChar','pLevels','pPause','pWin','pOver','pSettings'];
 
 // ---------------- HUD canvas ----------------
 const hud=$('hudTop'), hctx=hud.getContext('2d');
@@ -66,7 +68,10 @@ function adjustSel(d){
 }
 function backAction(){
   if(panel==='pChar') showPanel('pMain');
-  else if(panel==='pLevels') showPanel('pChar');
+  else if(panel==='pLevels') showPanel(pendingCoop?'pModeSel':'pChar');
+  else if(panel==='pMulti'){ pendingCoop=null; showPanel('pMain'); }
+  else if(panel==='pModeSel'){ if(pendingCoop==='host'){ showPanel('pHost'); } else { pendingCoop=null; showPanel('pMulti'); } }
+  else if(panel==='pHost'||panel==='pJoin'){ Net.close(); pendingCoop=null; showPanel('pMulti'); }
   else if(panel==='pSettings') showPanel(settingsReturn);
   else if(panel==='pPause') resumeGame();
 }
@@ -119,15 +124,20 @@ function buildLevelCards(){
 }
 function showWinPanel(){
   winShown=true;
-  const L=G.level, P=G.P;
-  $('winTitle').textContent=`✧ ${G.char.name.toUpperCase()} DID IT! ✧`;
+  const L=G.level;
+  const names=G.players.map(p=>p.char.name.toUpperCase());
+  $('winTitle').textContent=names.length>1?`✧ ${names.join(' & ')} DID IT! ✧`:`✧ ${names[0]} DID IT! ✧`;
+  const balls=Math.min(L.totalBalls||5,sumOf('balls'));
   $('winStats').innerHTML=
-    `cosmic bones &nbsp;${P.bones} / ${L.totalBones}<br>`+
-    `🎾 tennis balls &nbsp;${P.balls} / ${L.totalBalls||5}${P.balls>=(L.totalBalls||5)?' &nbsp;✧ all of them!':''}<br>`+
+    `cosmic bones &nbsp;${sumOf('bones')} / ${L.totalBones}<br>`+
+    `🎾 tennis balls &nbsp;${balls} / ${L.totalBalls||5}${balls>=(L.totalBalls||5)?' &nbsp;✧ all of them!':''}<br>`+
     `time &nbsp;${fmtTime(G.playT)}<br>`+
-    `score &nbsp;${P.score}${G.newBest?' &nbsp;★ new best!':''}`;
-  const hasNext=levelIdx+1<LEVELS[mode].length;
+    `score &nbsp;${sumOf('score')}${G.newBest?' &nbsp;★ new best!':''}`;
+  const isGuest=G.coop==='guest';
+  const hasNext=!isGuest&&levelIdx+1<LEVELS[mode].length;
   $('btnNext').classList.toggle('hidden',!hasNext);
+  $('pWin').querySelector('[data-act="restart"]').classList.toggle('hidden',isGuest);
+  if(isGuest) toast('the host picks the next dream');
   showPanel('pWin');
 }
 function showOverPanel(){
@@ -138,6 +148,23 @@ function showOverPanel(){
 }
 
 // ---------------- game flow ----------------
+function configureCouchInputs(){
+  const pads=[...(navigator.getGamepads?navigator.getGamepads():[])].filter(p=>p&&p.connected);
+  if(pads.length>=2){
+    Input.configure({keymap:'p1',pad:pads[0].index,touch:true});
+    Input2.configure({keymap:'p2',pad:pads[1].index});
+    toast('P1: pad 1 · P2: pad 2');
+  } else if(pads.length===1){
+    Input.configure({keymap:'p1',pad:null,touch:true});
+    Input2.configure({keymap:'p2',pad:pads[0].index});
+    toast('P1: keyboard/touch · P2: gamepad');
+  } else {
+    Input.configure({keymap:'p1',pad:null,touch:true});
+    Input2.configure({keymap:'p2',pad:null});
+    toast('P1: arrows + Z/X/C · P2: WASD + Space/Q/E');
+  }
+}
+function toast(t){ G.toasts.push({txt:t,t:3.2}); if(G.toasts.length>3) G.toasts.shift(); }
 function startGame(idx){
   levelIdx=idx;
   winShown=overShown=false;
@@ -145,7 +172,23 @@ function startGame(idx){
   const next=mode==='classic'?Render2D:Render3D;
   const other=mode==='classic'?Render3D:Render2D;
   other.hide();
-  loadLevel(mode,LEVELS[mode][idx],charId);
+  let opts;
+  if(pendingCoop==='local'){
+    configureCouchInputs();
+    opts={coop:'local',chars:[charId,charId==='rue'?'nero':'rue'],inputs:[Input,Input2]};
+  } else if(pendingCoop==='host'&&Net.connected){
+    Input.configure({keymap:'merged',pad:'any',touch:true});
+    opts={coop:'host',chars:[charId,Net.remoteChar]};
+    Net.sendInit(mode,idx);
+  } else if(pendingCoop==='guest'){
+    Input.configure({keymap:'merged',pad:'any',touch:true});
+    opts={coop:'guest',chars:[charId,Net.remoteChar]};
+  } else {
+    pendingCoop=null;
+    Input.configure({keymap:'merged',pad:'any',touch:true});
+    opts={chars:[charId]};
+  }
+  loadLevel(mode,LEVELS[mode][idx],opts);
   next.show();
   if(mode==='classic'){
     G.hooks.onBlockUsed=G.hooks.onBrickBreak=G.hooks.onEnemyGone=G.hooks.onItemGone=null;
@@ -167,6 +210,8 @@ function resumeGame(){
 }
 function quitToMenu(){
   G.state='menu'; G.level=null;
+  Net.close(); pendingCoop=null;
+  Input.configure({keymap:'merged',pad:'any',touch:true});
   if(activeR) activeR.hide();
   activeR=null;
   hctx.clearRect(0,0,hw,hh);
@@ -178,9 +223,24 @@ function quitToMenu(){
 function doAct(act){
   if(act.startsWith('mode:')){
     mode=act.slice(5);
-    buildCharCards();
-    showPanel('pChar');
+    if(pendingCoop){ buildLevelCards(); showPanel('pLevels'); }
+    else { buildCharCards(); showPanel('pChar'); }
   }
+  else if(act==='multi') showPanel('pMulti');
+  else if(act==='couch'){ pendingCoop='local'; showPanel('pModeSel'); }
+  else if(act==='hostRoom'){
+    pendingCoop='host';
+    showPanel('pHost');
+    $('roomCode').textContent='····';
+    Net.host().then(code=>{ $('roomCode').textContent=code; });
+  }
+  else if(act==='joinRoom'){ pendingCoop='guest'; showPanel('pJoin'); $('joinStatus').textContent=''; }
+  else if(act==='joinGo'){
+    const code=$('joinCode').value;
+    if(code.trim().length===4) Net.join(code);
+    else $('joinStatus').textContent='the code is 4 letters';
+  }
+  else if(act==='netCancel'){ Net.close(); pendingCoop=null; showPanel('pMulti'); }
   else if(act==='settings'){ settingsReturn=panel; showPanel('pSettings'); }
   else if(act==='back') backAction();
   else if(act==='resume') resumeGame();
@@ -287,11 +347,12 @@ $('tFS').addEventListener('click',()=>{ Sound.unlock(); toggleFS(); });
 
 // ---------------- global input events ----------------
 window.addEventListener('keydown',e=>{
+  if(e.target&&e.target.tagName==='INPUT') return;   // let the room-code field type freely
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
   if(e.code==='KeyF'&&!e.repeat) toggleFS();
-  Input.key(e,true); Sound.unlock();
+  routeKey(e,true); Sound.unlock();
 });
-window.addEventListener('keyup',e=>Input.key(e,false));
+window.addEventListener('keyup',e=>routeKey(e,false));
 window.addEventListener('pointerdown',()=>Sound.unlock());
 window.addEventListener('gamepadconnected',()=>{ Input.padOn=true; });
 window.addEventListener('blur',()=>pauseGame());
@@ -320,29 +381,40 @@ function drawHUD(){
     hctx.fillText(f.txt,nx*hw,ny*hh);
   }
   hctx.globalAlpha=1;
-  // hearts
-  for(let i=0;i<Math.max(3,P.hearts);i++){
-    const x=(24+i*32)*k, y=26*k, on=i<P.hearts;
-    hctx.fillStyle=on?`hsl(${340+8*Math.sin(G.gt*3+i)},85%,62%)`:'rgba(255,255,255,0.18)';
-    hctx.beginPath(); hctx.arc(x,y+3*k,7*k,0,TAU); hctx.fill();
-    hctx.beginPath(); hctx.arc(x-6*k,y-4*k,3.4*k,0,TAU); hctx.fill();
-    hctx.beginPath(); hctx.arc(x,y-6*k,3.4*k,0,TAU); hctx.fill();
-    hctx.beginPath(); hctx.arc(x+6*k,y-4*k,3.4*k,0,TAU); hctx.fill();
-  }
-  // bone counter
-  hctx.save(); hctx.translate(30*k,58*k); hctx.scale(k,k);
+  // hearts — one row per pup, tinted chip with their initial
+  G.players.forEach((pl,pi)=>{
+    const y=(26+pi*30)*k;
+    if(G.players.length>1){
+      hctx.fillStyle=pl.char.pal.head;
+      hctx.beginPath(); hctx.arc(12*k,y,6*k,0,TAU); hctx.fill();
+      hctx.fillStyle='#0a0420';
+      hctx.font=`bold ${9*k}px Consolas, monospace`; hctx.textAlign='center';
+      hctx.fillText(pl.char.name[0],12*k,y+3*k);
+    }
+    for(let i=0;i<Math.max(3,pl.hearts);i++){
+      const x=(30+i*30)*k, on=i<pl.hearts;
+      hctx.fillStyle=on?`hsl(${340+8*Math.sin(G.gt*3+i)},85%,62%)`:'rgba(255,255,255,0.18)';
+      hctx.beginPath(); hctx.arc(x,y+3*k,6.6*k,0,TAU); hctx.fill();
+      hctx.beginPath(); hctx.arc(x-5.6*k,y-4*k,3.2*k,0,TAU); hctx.fill();
+      hctx.beginPath(); hctx.arc(x,y-5.6*k,3.2*k,0,TAU); hctx.fill();
+      hctx.beginPath(); hctx.arc(x+5.6*k,y-4*k,3.2*k,0,TAU); hctx.fill();
+    }
+  });
+  const rowsY=26+G.players.length*30;
+  // bone counter (team total)
+  hctx.save(); hctx.translate(30*k,(rowsY+4)*k); hctx.scale(k,k);
   hctx.fillStyle='#fdf8ee';
   hctx.fillRect(-6,-2,12,4);
   for(const [bx,by] of [[-6,-3.4],[-6,3.4],[6,-3.4],[6,3.4]]){ hctx.beginPath(); hctx.arc(bx,by,3.2,0,TAU); hctx.fill(); }
   hctx.restore();
   hctx.font=`bold ${17*k}px Consolas, monospace`;
   hctx.fillStyle='#fff'; hctx.textAlign='left';
-  hctx.fillText('× '+P.bones,46*k,64*k);
-  // tennis ball slots (the special five)
-  const totB=(G.level.totalBalls||5);
+  hctx.fillText('× '+sumOf('bones'),46*k,(rowsY+10)*k);
+  // tennis ball slots (team total)
+  const totB=(G.level.totalBalls||5), gotB=Math.min(totB,sumOf('balls'));
   for(let i=0;i<totB;i++){
-    const bx=(28+i*17)*k, by=86*k;
-    if(i<P.balls){
+    const bx=(28+i*17)*k, by=(rowsY+32)*k;
+    if(i<gotB){
       hctx.fillStyle='#d7f74a';
       hctx.beginPath(); hctx.arc(bx,by,6*k,0,TAU); hctx.fill();
       hctx.strokeStyle='#fff'; hctx.lineWidth=1.4*k;
@@ -354,7 +426,7 @@ function drawHUD(){
   }
   // score / time / level name
   hctx.textAlign='right';
-  hctx.fillText('SCORE '+P.score,hw-20*k,30*k);
+  hctx.fillText('SCORE '+sumOf('score'),hw-20*k,30*k);
   hctx.fillText('TIME '+fmtTime(G.playT),hw-20*k,56*k);
   hctx.font=`${12*k}px Consolas, monospace`;
   hctx.fillStyle='rgba(255,255,255,0.5)';
@@ -394,19 +466,23 @@ function navTick(){
 }
 function tick(){
   Input.poll();
+  if(G.coop==='local') Input2.poll();
   if(Input.musicP) Sound.toggle();
   const menuOpen=!!panel;
   if(menuOpen){
     navTick();
     // let the win/over celebration keep swirling behind its panel
     if(G.state==='win'||G.state==='over') logicUpdate();
+    if(Net.role&&G.level) Net.tick();
   } else if(G.level){
-    if(G.state==='play'&&(Input.startP||Input.backP)){ pauseGame(); Input.clear(); return; }
+    if(G.state==='play'&&(Input.startP||Input.backP)){ pauseGame(); Input.clear(); Input2.clear(); return; }
     logicUpdate();
+    if(Net.role) Net.tick();
     if(G.state==='win'&&G.winT>1.4&&!winShown) showWinPanel();
     if(G.state==='over'&&G.overT>0.8&&!overShown) showOverPanel();
   }
   Input.clear();
+  if(G.coop==='local') Input2.clear();
 }
 let last=performance.now(), acc=0;
 const STEP=1000/60;
@@ -423,6 +499,14 @@ function frame(now){
 $('mainHint').innerHTML=
   '🎮 controller · ⌨ keyboard · 📱 touch — all welcome<br>'+
   'collect cosmic bones · bounce shroomies · spin off the spiky eyes · reach the Great Eye';
+// net session wiring
+Net.onStatus=s=>{
+  if(panel==='pHost') $('hostStatus').textContent=s;
+  if(panel==='pJoin') $('joinStatus').textContent=s;
+};
+Net.onPeerJoined=()=>{ Sound.uiS(); showPanel('pModeSel'); };
+Net.onStart=(m,idx)=>{ pendingCoop='guest'; mode=m; charId=Save.settings.char||charId; startGame(idx); };
+Net.onDisconnect=()=>{ if(G.coop==='host'||G.coop==='guest') quitToMenu(); pendingCoop=null; };
 initSettings();
 Render3D.setQuality(Save.settings.quality);
 sizeHud();
