@@ -86,24 +86,25 @@
   #touchUI *{ pointer-events:auto; }
   #touchUI, #touchUI *{ user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; touch-action:none; }
   #touchUI svg{ pointer-events:none; display:block; }
-  #padMove{ position:absolute; left:max(3vw, env(safe-area-inset-left)); bottom:calc(10vh + env(safe-area-inset-bottom));
-    width:min(42vw,280px); height:min(24vh,132px);
+  #padMove{ position:absolute; left:max(3vw, env(safe-area-inset-left)); top:50%; transform:translateY(-50%);
+    width:min(42vw,280px); height:min(30vh,170px);
     display:flex; border-radius:20px; overflow:hidden; border:2px solid rgba(255,255,255,.28); background:rgba(255,255,255,.06); }
   #padMove .half{ flex:1; display:flex; align-items:center; justify-content:center; opacity:.55; }
   #padMove .half svg{ width:min(9vmin,42px); height:min(9vmin,42px); }
   #padMove .half:first-child{ border-right:1px dashed rgba(255,255,255,.18); }
   #padMove.lActive .half:first-child, #padMove.rActive .half:last-child{ background:rgba(255,110,231,.3); opacity:1; }
-  #padAct{ position:absolute; right:max(3vw, env(safe-area-inset-right)); bottom:calc(9.5vh + env(safe-area-inset-bottom));
-    display:flex; align-items:flex-end; gap:14px; }
-  .tbtn{ display:flex; align-items:center; justify-content:center; border-radius:50%;
+  #padAct{ position:absolute; right:max(3vw, env(safe-area-inset-right)); top:50%; transform:translateY(-50%);
+    display:flex; align-items:stretch; gap:12px; }
+  #actStack{ display:flex; flex-direction:column; gap:12px; }
+  .tbtn{ display:flex; align-items:center; justify-content:center; border-radius:22px;
     border:2.5px solid rgba(255,255,255,.32); background:rgba(255,255,255,.08); color:#fff;
     box-shadow:0 2px 12px rgba(0,0,0,.3); }
-  .tbtn.down{ background:rgba(255,110,231,.4); border-color:var(--glow); transform:scale(.94); }
+  .tbtn.down{ background:rgba(255,110,231,.4); border-color:var(--glow); transform:scale(.96); }
   .tbtn span{ font-size:min(3.2vmin,14px); font-weight:bold; letter-spacing:1px; }
-  .tbtn svg{ width:52%; height:52%; }
-  #tRun{ width:17vmin; height:17vmin; max-width:84px; max-height:84px; }
-  #tSpin{ width:19vmin; height:19vmin; max-width:94px; max-height:94px; }
-  #tJump{ width:24vmin; height:24vmin; max-width:120px; max-height:120px; }
+  .tbtn svg{ width:44%; height:44%; }
+  #tSpin,#tRun{ width:min(18vmin,92px); height:min(18vmin,92px); }
+  #tJump{ width:min(22vmin,110px); height:auto; align-self:stretch; }
+  #tJump svg{ width:56%; height:30%; }
   #topBtns{ position:absolute; top:calc(8px + env(safe-area-inset-top)); right:max(10px, env(safe-area-inset-right)); display:flex; gap:10px; }
   #topBtns button{ width:48px; height:48px; border-radius:14px; border:1.5px solid rgba(255,255,255,.3);
     background:rgba(10,4,26,.55); color:#fff; font-size:20px; cursor:pointer;
@@ -128,12 +129,14 @@
     <div class="half"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 4 L18 12 L8 20 Z"/></svg></div>
   </div>
   <div id="padAct">
-    <div class="tbtn" id="tSpin" data-tbtn="spin" aria-label="spin jump">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
-        <path d="M20 12 A8 8 0 1 1 12 4"/><path d="M12 1 L12 7 L7 4 Z" fill="currentColor" stroke="none"/>
-      </svg>
+    <div id="actStack">
+      <div class="tbtn" id="tSpin" data-tbtn="spin" aria-label="spin jump">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+          <path d="M20 12 A8 8 0 1 1 12 4"/><path d="M12 1 L12 7 L7 4 Z" fill="currentColor" stroke="none"/>
+        </svg>
+      </div>
+      <div class="tbtn" id="tRun" data-tbtn="run"><span>RUN</span></div>
     </div>
-    <div class="tbtn" id="tRun" data-tbtn="run"><span>RUN</span></div>
     <div class="tbtn" id="tJump" data-tbtn="jump" aria-label="jump">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 L21 13 H15 V21 H9 V13 H3 Z"/></svg>
     </div>
