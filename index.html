@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rue & Nero's Psychedelic Odyssey</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root{ --glow:#ff6ee7; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; background:#050110; overflow:hidden; touch-action:none; overscroll-behavior:none;
+    font-family:Consolas,'Courier New',monospace; color:#fff; }
+  canvas{ display:block; }
+  .stage{ position:fixed; inset:0; }
+  .stage canvas{ position:absolute; inset:0; width:100vw; height:100vh; }
+  #hudTop{ position:fixed; inset:0; width:100vw; height:100vh; pointer-events:none; z-index:10; }
+  .hidden{ display:none !important; }
+
+  /* ---------- animated psychedelic menu backdrop ---------- */
+  #menuBg{ position:fixed; inset:0; z-index:5; overflow:hidden; }
+  #menuBg::before{ content:''; position:absolute; inset:-60%;
+    background:conic-gradient(from 0deg, #ff2fb0,#ff9d2f,#e8ff2f,#2fff8f,#2fd4ff,#7a2fff,#ff2fb0);
+    animation:spin 24s linear infinite; filter:blur(60px) saturate(1.6); opacity:.55; }
+  #menuBg::after{ content:''; position:absolute; inset:0;
+    background:radial-gradient(circle at 50% 60%, transparent 0%, rgba(5,1,16,.72) 62%, rgba(5,1,16,.94) 100%); }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* ---------- menu panels ---------- */
+  #menus{ position:fixed; inset:0; z-index:20; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+  .panel{ pointer-events:auto; background:rgba(10,4,26,.82); border:1px solid rgba(255,255,255,.14);
+    border-radius:18px; padding:26px 34px; max-width:min(92vw,760px); max-height:92vh; overflow-y:auto;
+    text-align:center; backdrop-filter:blur(10px); box-shadow:0 0 60px rgba(160,60,255,.25); }
+  .gameTitle{ font-size:clamp(22px,4.4vw,44px); margin:4px 0 2px; line-height:1.15; letter-spacing:1px;
+    background:linear-gradient(90deg,#ff6ee7,#ffd76e,#6effb0,#6ec9ff,#c96eff); -webkit-background-clip:text; background-clip:text; color:transparent;
+    animation:hueSpin 8s linear infinite; }
+  @keyframes hueSpin{ to{ filter:hue-rotate(360deg); } }
+  .tag{ opacity:.8; font-style:italic; margin:2px 0 20px; font-size:clamp(12px,1.8vw,16px); }
+  h2{ margin:2px 0 16px; font-size:clamp(18px,3vw,28px); }
+  .mbtn{ display:block; width:100%; margin:10px auto; padding:14px 20px; font:inherit; font-size:clamp(15px,2.2vw,19px);
+    color:#fff; background:rgba(255,255,255,.07); border:2px solid rgba(255,255,255,.22); border-radius:12px; cursor:pointer;
+    transition:transform .08s, border-color .12s, background .12s; }
+  .mbtn.small{ width:auto; display:inline-block; padding:9px 18px; font-size:14px; margin:14px 6px 0; }
+  .mbtn:hover,.mbtn.sel{ border-color:var(--glow); background:rgba(255,110,231,.14); transform:scale(1.02);
+    box-shadow:0 0 18px rgba(255,110,231,.35); }
+  .mbtn:disabled{ opacity:.38; cursor:default; }
+  .hint{ opacity:.6; font-size:12.5px; margin-top:18px; line-height:1.6; }
+  .cards{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+  .card{ flex:1 1 240px; max-width:300px; background:rgba(255,255,255,.06); border:2px solid rgba(255,255,255,.2);
+    border-radius:14px; padding:14px; cursor:pointer; transition:transform .08s, border-color .12s; }
+  .card:hover,.card.sel{ border-color:var(--glow); transform:scale(1.03); box-shadow:0 0 20px rgba(255,110,231,.3); }
+  .card.locked{ opacity:.45; cursor:default; }
+  .card h3{ margin:8px 0 4px; font-size:18px; }
+  .card p{ margin:3px 0; font-size:12.5px; opacity:.75; }
+  .card canvas{ margin:0 auto; image-rendering:pixelated; }
+  .statline{ color:#ffd76e; }
+  .row{ display:flex; align-items:center; gap:12px; margin:12px 0; text-align:left; }
+  .row label{ flex:1; font-size:15px; }
+  .row input[type=range]{ flex:1.3; accent-color:var(--glow); height:26px; }
+  .row .val{ width:52px; text-align:right; font-size:13px; opacity:.8; }
+  .seg{ display:flex; gap:6px; flex:1.3; }
+  .seg button{ flex:1; padding:7px 4px; font:inherit; font-size:12.5px; color:#fff; background:rgba(255,255,255,.07);
+    border:1.5px solid rgba(255,255,255,.22); border-radius:8px; cursor:pointer; }
+  .seg button.on{ border-color:var(--glow); background:rgba(255,110,231,.18); }
+
+  /* ---------- touch controls ---------- */
+  #touchUI{ position:fixed; inset:0; z-index:15; pointer-events:none; }
+  #touchUI *{ pointer-events:auto; user-select:none; }
+  #padMove{ position:absolute; left:4vw; bottom:5vh; width:min(38vw,240px); height:min(20vh,110px);
+    display:flex; border-radius:18px; overflow:hidden; border:2px solid rgba(255,255,255,.25); background:rgba(255,255,255,.05); }
+  #padMove .half{ flex:1; display:flex; align-items:center; justify-content:center; font-size:34px; opacity:.6; }
+  #padMove.lActive .half:first-child, #padMove.rActive .half:last-child{ background:rgba(255,110,231,.25); opacity:1; }
+  #padAct{ position:absolute; right:4vw; bottom:4vh; display:flex; align-items:flex-end; gap:12px; }
+  .tbtn{ display:flex; align-items:center; justify-content:center; border-radius:50%;
+    border:2px solid rgba(255,255,255,.3); background:rgba(255,255,255,.07); color:#fff; font-size:17px; }
+  .tbtn.down{ background:rgba(255,110,231,.35); border-color:var(--glow); }
+  #tRun{ width:15vmin; height:15vmin; max-width:76px; max-height:76px; font-size:13px; }
+  #tSpin{ width:17vmin; height:17vmin; max-width:86px; max-height:86px; }
+  #tJump{ width:21vmin; height:21vmin; max-width:108px; max-height:108px; font-size:22px; }
+  #topBtns{ position:absolute; top:calc(8px + env(safe-area-inset-top)); right:10px; display:flex; gap:8px; }
+  #topBtns button{ width:44px; height:44px; border-radius:12px; border:1.5px solid rgba(255,255,255,.3);
+    background:rgba(10,4,26,.5); color:#fff; font-size:19px; cursor:pointer; }
+
+  #rotateHint{ position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
+    background:rgba(5,1,16,.95); font-size:20px; text-align:center; line-height:2; }
+  @media (orientation:portrait) and (pointer:coarse){ #rotateHint{ display:flex; } }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./lib/three.module.js" } }
+</script>
+</head>
+<body>
+<div class="stage hidden" id="stage2d"><canvas id="view2d"></canvas></div>
+<div class="stage hidden" id="stage3d"><canvas id="view3d"></canvas></div>
+<canvas id="hudTop"></canvas>
+
+<div id="touchUI" class="hidden">
+  <div id="padMove"><div class="half">◀</div><div class="half">▶</div></div>
+  <div id="padAct">
+    <div class="tbtn" id="tRun" data-tbtn="run">RUN</div>
+    <div class="tbtn" id="tSpin" data-tbtn="spin">🌀</div>
+    <div class="tbtn" id="tJump" data-tbtn="jump">Ⓐ</div>
+  </div>
+  <div id="topBtns">
+    <button id="tMusic">♪</button>
+    <button id="tPause">⏸</button>
+  </div>
+</div>
+
+<div id="menuBg"></div>
+<div id="menus">
+  <div class="panel" id="pMain">
+    <h1 class="gameTitle">RUE &amp; NERO'S<br>PSYCHEDELIC ODYSSEY</h1>
+    <p class="tag">two very good dogs cross the cosmic veil</p>
+    <button class="mbtn" data-act="mode:classic">🎨 &nbsp;CLASSIC 2D — pixel dreams</button>
+    <button class="mbtn" data-act="mode:odyssey">🌀 &nbsp;3D ODYSSEY — the deep dive</button>
+    <button class="mbtn small" data-act="settings">⚙ settings</button>
+    <p class="hint" id="mainHint"></p>
+  </div>
+
+  <div class="panel hidden" id="pChar">
+    <h2>choose your good dog</h2>
+    <div class="cards" id="charCards"></div>
+    <button class="mbtn small" data-act="back">← back</button>
+  </div>
+
+  <div class="panel hidden" id="pLevels">
+    <h2 id="levelsTitle">choose a dream</h2>
+    <div class="cards" id="levelCards"></div>
+    <button class="mbtn small" data-act="back">← back</button>
+  </div>
+
+  <div class="panel hidden" id="pPause">
+    <h2>PAUSED</h2>
+    <button class="mbtn" data-act="resume">▶ resume</button>
+    <button class="mbtn" data-act="restart">↺ restart dream</button>
+    <button class="mbtn" data-act="settings">⚙ settings</button>
+    <button class="mbtn" data-act="quit">🏠 back to den</button>
+  </div>
+
+  <div class="panel hidden" id="pWin">
+    <h2 id="winTitle">TRANSCENDENCE ✧</h2>
+    <p class="tag">✧ what a good dog ✧</p>
+    <p id="winStats" style="line-height:2"></p>
+    <button class="mbtn" data-act="next" id="btnNext">→ next dream</button>
+    <button class="mbtn" data-act="restart">↺ dream it again</button>
+    <button class="mbtn" data-act="quit">🏠 back to den</button>
+  </div>
+
+  <div class="panel hidden" id="pOver">
+    <h2>THE DREAM DRIFTS HOME…</h2>
+    <p class="tag" id="overText"></p>
+    <p id="overStats"></p>
+    <button class="mbtn" data-act="restart">🌙 dream again</button>
+    <button class="mbtn" data-act="quit">🏠 back to den</button>
+  </div>
+
+  <div class="panel hidden" id="pSettings">
+    <h2>⚙ settings</h2>
+    <div class="row"><label>music</label><input type="range" id="sMusic" min="0" max="100"><span class="val" id="vMusic"></span></div>
+    <div class="row"><label>sound fx</label><input type="range" id="sSfx" min="0" max="100"><span class="val" id="vSfx"></span></div>
+    <div class="row"><label>trip intensity</label><input type="range" id="sTrip" min="40" max="125"><span class="val" id="vTrip"></span></div>
+    <div class="row"><label>3D quality</label><div class="seg" id="segQuality">
+      <button data-q="auto">auto</button><button data-q="low">low</button><button data-q="medium">med</button><button data-q="high">high</button>
+    </div></div>
+    <div class="row"><label>touch controls</label><div class="seg" id="segTouch">
+      <button data-t="auto">auto</button><button data-t="on">on</button><button data-t="off">off</button>
+    </div></div>
+    <button class="mbtn small" data-act="fullscreen">⛶ fullscreen</button>
+    <button class="mbtn small" data-act="resetProgress">🧹 reset progress</button>
+    <br><button class="mbtn small" data-act="back">← back</button>
+  </div>
+</div>
+
+<div id="rotateHint">↻<br>rotate your device sideways<br><span style="font-size:14px;opacity:.7">this dream is widescreen</span></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
