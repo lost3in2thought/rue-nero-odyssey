@@ -7,6 +7,7 @@ import {G,loadLevel,update as logicUpdate,sumOf} from './logic.js';
 import {Net} from './net.js';
 import {Render2D,drawPortrait} from './render2d.js';
 import {Render3D} from './render3d.js';
+import {World3D} from './world3d.js';
 
 const $=id=>document.getElementById(id);
 Save.load();
@@ -18,6 +19,7 @@ let panel='pMain', settingsReturn='pMain';
 let selItems=[], selIdx=0;
 let winShown=false, overShown=false;
 let pendingCoop=null;   // null | 'local' | 'host' | 'guest'
+let pendingRoam=false;  // free-roam mode requested from the menu
 const PANELS=['pMain','pMulti','pModeSel','pHost','pJoin','pChar','pLevels','pPause','pWin','pOver','pSettings'];
 
 // ---------------- HUD canvas ----------------
@@ -67,7 +69,7 @@ function adjustSel(d){
   } else moveSel(d);
 }
 function backAction(){
-  if(panel==='pChar') showPanel('pMain');
+  if(panel==='pChar'){ pendingRoam=false; showPanel('pMain'); }
   else if(panel==='pLevels') showPanel(pendingCoop?'pModeSel':'pChar');
   else if(panel==='pMulti'){ pendingCoop=null; showPanel('pMain'); }
   else if(panel==='pModeSel'){ if(pendingCoop==='host'){ showPanel('pHost'); } else { pendingCoop=null; showPanel('pMulti'); } }
@@ -198,19 +200,37 @@ function startGame(idx){
   hidePanels();
   updateTouchVisibility();
 }
+function startRoam(){
+  winShown=false;
+  Sound.unlock(); Sound.applyVolumes();
+  Input.configure({keymap:'merged',pad:'any',touch:true});
+  Render2D.hide(); Render3D.hide();
+  activeR=null;
+  World3D.start(charId);
+  hidePanels();
+  $('menuBg').classList.add('hidden');
+  updateTouchVisibility();
+}
 function pauseGame(){
+  if(World3D.active){
+    if(World3D.paused) return;
+    World3D.paused=true;
+    showPanel('pPause');
+    return;
+  }
   if(G.state!=='play') return;
   G.state='pause';
   showPanel('pPause');
 }
 function resumeGame(){
-  if(G.state!=='pause') return;
   hidePanels();
-  G.state='play';
+  if(World3D.active){ World3D.paused=false; return; }
+  if(G.state==='pause') G.state='play';
 }
 function quitToMenu(){
   G.state='menu'; G.level=null;
-  Net.close(); pendingCoop=null;
+  Net.close(); pendingCoop=null; pendingRoam=false;
+  if(World3D.active) World3D.hide();
   Input.configure({keymap:'merged',pad:'any',touch:true});
   if(activeR) activeR.hide();
   activeR=null;
@@ -226,6 +246,7 @@ function doAct(act){
     if(pendingCoop){ buildLevelCards(); showPanel('pLevels'); }
     else { buildCharCards(); showPanel('pChar'); }
   }
+  else if(act==='roam'){ pendingRoam=true; buildCharCards(); showPanel('pChar'); }
   else if(act==='multi') showPanel('pMulti');
   else if(act==='couch'){ pendingCoop='local'; showPanel('pModeSel'); }
   else if(act==='hostRoom'){
@@ -244,7 +265,7 @@ function doAct(act){
   else if(act==='settings'){ settingsReturn=panel; showPanel('pSettings'); }
   else if(act==='back') backAction();
   else if(act==='resume') resumeGame();
-  else if(act==='restart') startGame(levelIdx);
+  else if(act==='restart'){ if(World3D.active) startRoam(); else startGame(levelIdx); }
   else if(act==='next') startGame(levelIdx+1);
   else if(act==='quit') quitToMenu();
   else if(act==='fullscreen') toggleFS();
@@ -258,6 +279,7 @@ $('menus').addEventListener('click',e=>{
     if(card.dataset.char){
       charId=card.dataset.char;
       Save.settings.char=charId; Save.store();
+      if(pendingRoam){ startRoam(); return; }
       buildLevelCards();
       showPanel('pLevels');
     } else if(card.dataset.idx!=null){
@@ -335,7 +357,7 @@ function touchWanted(){
   return t==='on'||(t==='auto'&&isMobile);
 }
 function updateTouchVisibility(){
-  $('touchUI').classList.toggle('hidden',!(touchWanted()&&!!G.level));
+  $('touchUI').classList.toggle('hidden',!(touchWanted()&&(!!G.level||World3D.active)));
 }
 bindTouch();
 $('tPause').addEventListener('click',()=>{
@@ -359,11 +381,50 @@ window.addEventListener('click',()=>Sound.unlock());
 window.addEventListener('gamepadconnected',()=>{ Input.padOn=true; });
 window.addEventListener('blur',()=>pauseGame());
 document.addEventListener('visibilitychange',()=>{ if(document.hidden) pauseGame(); });
-window.addEventListener('resize',()=>{ sizeHud(); Render2D.resize(); Render3D.resize(); });
+window.addEventListener('resize',()=>{ sizeHud(); Render2D.resize(); Render3D.resize(); World3D.resize(); });
 
 // ---------------- HUD drawing ----------------
+function drawRoamHUD(){
+  const k=hk, p=World3D.p;
+  if(!p) return;
+  // hearts
+  for(let i=0;i<Math.max(3,p.hearts);i++){
+    const x=(30+i*30)*k, y=26*k, on=i<p.hearts;
+    hctx.fillStyle=on?`hsl(${340+8*Math.sin(World3D.gt*3+i)},85%,62%)`:'rgba(255,255,255,0.18)';
+    hctx.beginPath(); hctx.arc(x,y+3*k,6.6*k,0,TAU); hctx.fill();
+    hctx.beginPath(); hctx.arc(x-5.6*k,y-4*k,3.2*k,0,TAU); hctx.fill();
+    hctx.beginPath(); hctx.arc(x,y-5.6*k,3.2*k,0,TAU); hctx.fill();
+    hctx.beginPath(); hctx.arc(x+5.6*k,y-4*k,3.2*k,0,TAU); hctx.fill();
+  }
+  hctx.font=`bold ${17*k}px Consolas, monospace`;
+  hctx.fillStyle='#fff'; hctx.textAlign='left';
+  hctx.fillText('🦴 × '+p.bones+' / '+World3D.totalBones,24*k,62*k);
+  hctx.fillText('🎾 '+p.balls+' / 5',24*k,88*k);
+  hctx.fillStyle='#ffd76e';
+  hctx.fillText('★ '+p.stars+' / 7',24*k,114*k);
+  hctx.textAlign='right';
+  hctx.fillStyle='#fff';
+  hctx.fillText('TIME '+fmtTime(World3D.playT),hw-20*k,30*k);
+  // next-star hint
+  const next=World3D.stars.find((s,i)=>!s.taken&&World3D.starMeshes[i].visible);
+  hctx.font=`${12.5*k}px Consolas, monospace`;
+  hctx.fillStyle='rgba(255,255,255,0.55)';
+  if(next) hctx.fillText('★ hint: '+next.hint,hw-20*k,54*k);
+  if(!touchWanted()){
+    hctx.textAlign='left';
+    hctx.fillText(Input.padOn?'🎮 sticks move & camera · Ⓐ jump · Ⓑ spin':'⌨ arrows move · Q/E camera · Z jump · C spin · SHIFT run',16*k,hh-12*k);
+  }
+  hctx.textAlign='center'; hctx.font=`bold ${16*k}px Consolas, monospace`;
+  World3D.toasts.forEach((t,i)=>{
+    hctx.globalAlpha=clamp(t.t,0,1);
+    hctx.fillStyle='#fff';
+    hctx.fillText(t.txt,hw/2,(92+i*24)*k);
+  });
+  hctx.globalAlpha=1;
+}
 function drawHUD(){
   hctx.clearRect(0,0,hw,hh);
+  if(World3D.active){ drawRoamHUD(); return; }
   if(!G.level||!activeR||!activeR.active) return;
   const k=hk, P=G.P;
   // world-anchored tips & floats
@@ -471,6 +532,16 @@ function tick(){
   if(G.coop==='local') Input2.poll();
   if(Input.musicP) Sound.toggle();
   const menuOpen=!!panel;
+  if(World3D.active){
+    if(menuOpen){ navTick(); }
+    else{
+      if(Input.startP||Input.backP){ pauseGame(); Input.clear(); return; }
+      World3D.update();
+      if(World3D.state==='win'&&World3D.winT>2.5&&!winShown) showRoamWin();
+    }
+    Input.clear();
+    return;
+  }
   if(menuOpen){
     navTick();
     // let the win/over celebration keep swirling behind its panel
@@ -493,8 +564,22 @@ function frame(now){
   acc+=Math.min(100,now-last); last=now;
   let n=0;
   while(acc>=STEP&&n<5){ tick(); acc-=STEP; n++; }
-  if(activeR) activeR.render();
+  if(World3D.active) World3D.render();
+  else if(activeR) activeR.render();
   drawHUD();
+}
+function showRoamWin(){
+  winShown=true;
+  const p=World3D.p, name=(CHARS[World3D.charId]||CHARS.rue).name;
+  $('winTitle').textContent=`✧ ${name.toUpperCase()} FOUND EVERY STAR! ✧`;
+  $('winStats').innerHTML=
+    `★ zoomie stars &nbsp;7 / 7<br>`+
+    `cosmic bones &nbsp;${p.bones} / ${World3D.totalBones}<br>`+
+    `🎾 tennis balls &nbsp;${p.balls} / 5<br>`+
+    `time &nbsp;${fmtTime(World3D.playT)}`;
+  $('btnNext').classList.add('hidden');
+  $('pWin').querySelector('[data-act="restart"]').classList.remove('hidden');
+  showPanel('pWin');
 }
 
 // ---------------- boot ----------------
@@ -525,19 +610,22 @@ window.__g={
   quit:quitToMenu,
   step(n){ for(let i=0;i<n;i++){ tick(); if(activeR&&activeR.built){ if(activeR===Render3D) Render3D.sync&&Render3D.sync(); } } },
   key(c,down){ window.dispatchEvent(new KeyboardEvent(down?'keydown':'keyup',{code:c})); },
-  r2d:Render2D, r3d:Render3D,
+  r2d:Render2D, r3d:Render3D, w3:World3D, roam:startRoam,
   forceSize(w,h){
     hud.width=w; hud.height=h; hw=w; hh=h; hk=Math.max(0.6,Math.min(w/1280,h/720));
     Render2D.forceSize&&Render2D.forceSize(w,h);
     Render3D.forceSize&&Render3D.forceSize(w,h);
+    World3D.built&&World3D.forceSize(w,h);
   },
   async cap(name){
-    if(activeR) activeR.render();
+    if(World3D.active) World3D.render();
+    else if(activeR) activeR.render();
     drawHUD();
     const send=async(cnv,suffix)=>{
       try{ await fetch('http://127.0.0.1:5218/',{method:'POST',body:name+suffix+'|'+cnv.toDataURL('image/png')}); }catch(e){}
     };
-    if(activeR===Render2D) await send(Render2D.view,'');
+    if(World3D.active) await send(World3D.view,'');
+    else if(activeR===Render2D) await send(Render2D.view,'');
     else if(activeR===Render3D) await send(Render3D.view,'');
     await send(hud,'_hud');
     return 'sent '+name;

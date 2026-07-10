@@ -8,9 +8,9 @@ import * as THREE from 'three';
 import {TILE,ROWS,VIEW_W as W,VIEW_H as H,TAU,clamp,lerp,isMobile,Save} from './shared.js';
 import {G,tget,isSolid} from './logic.js';
 
-function stdM(c,rough=0.75,extra={}){ return new THREE.MeshStandardMaterial({color:c,roughness:rough,...extra}); }
+export function stdM(c,rough=0.75,extra={}){ return new THREE.MeshStandardMaterial({color:c,roughness:rough,...extra}); }
 
-const SKY_FSH=`
+export const SKY_FSH=`
 precision highp float;
 varying vec3 vP; uniform float uT; uniform float uTrip; uniform float uHue; uniform float uDark;
 vec3 pal(float t){ return 0.5+0.5*cos(6.28318*(t+vec3(0.0,0.33,0.67))); }

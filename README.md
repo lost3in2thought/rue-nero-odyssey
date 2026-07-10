@@ -18,6 +18,15 @@ ghost parlors, prism peaks, geometric fortresses, and a star world.
 Every level hides **5 squeaky tennis balls** 🎾 (the dragon coins of
 this universe) alongside the cosmic-bone trail.
 
+**🏔 Free Roam — Dreamland 64** — an open-world mode: one big
+explorable dream island with camera-relative analog movement and an
+orbit camera (right stick or Q/E; auto-follows on touch). Climb the
+spiral mountain to the Great Eye, ride bounce blooms to the cloud,
+scale the lotus stairway, wade the dream lake — and find the
+**7 Zoomie Stars** (one only appears after 60 cosmic bones). Touch
+a checkpoint crystal to attune your respawn; falling off the island
+just means the dream tide carries you back.
+
 **Multiplayer** 🐾🐾 — two ways to play together:
 
 - **Couch co-op**: both pups on one screen. P1 = arrows + Z/X/C (or

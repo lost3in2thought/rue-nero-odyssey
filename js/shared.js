@@ -306,6 +306,22 @@ export class PlayerInput{
     np.u=u; np.d=d; np.l=l; np.r=r;
     this.l=!!l; this.r=!!r; this.u=!!u; this.d=!!d;
     this.jump=!!jump; this.spin=!!spin; this.run=!!run;
+    // analog vectors for free-roam: left stick = move, right stick = camera
+    let sx=(l?-1:0)+(r?1:0), sy=(u?-1:0)+(d?1:0);
+    this.rstick={x:0,y:0};
+    if(gp){
+      const ax=gp.axes, dz=0.22;
+      if(Math.abs(ax[0]||0)>dz) sx=ax[0];
+      if(Math.abs(ax[1]||0)>dz) sy=ax[1];
+      if(Math.abs(ax[2]||0)>dz) this.rstick.x=ax[2];
+      if(Math.abs(ax[3]||0)>dz) this.rstick.y=ax[3];
+    }
+    const T2=this.useTouch?this.touch:{};
+    if(T2.jx||T2.jy){ sx=T2.jx; sy=T2.jy; }
+    const mag=Math.hypot(sx,sy);
+    if(mag>1){ sx/=mag; sy/=mag; }
+    this.stick={x:sx,y:sy};
+    this.camL=!!this._k.KeyQ; this.camR=!!this._k.KeyE;
   }
   clear(){ this.jumpP=this.spinP=this.startP=this.musicP=this.anyP=this.uP=this.dP=this.lP=this.rP=this.backP=false; }
 }
@@ -338,6 +354,12 @@ export function bindTouch(){
       const x=e.clientX-r.left;
       Input.touch.l=x<r.width/2;
       Input.touch.r=x>=r.width/2;
+      // full joystick vector for free-roam (deadzone 0.22)
+      let jx=((e.clientX-r.left)/r.width)*2-1;
+      let jy=((e.clientY-r.top)/r.height)*2-1;
+      const m=Math.hypot(jx,jy);
+      if(m<0.22){ jx=0; jy=0; } else if(m>1){ jx/=m; jy/=m; }
+      Input.touch.jx=jx; Input.touch.jy=jy;
       pad.classList.toggle('lActive',Input.touch.l);
       pad.classList.toggle('rActive',Input.touch.r);
     };
@@ -345,6 +367,7 @@ export function bindTouch(){
       if(e&&activeId!=null&&e.pointerId!==activeId) return;
       activeId=null;
       Input.touch.l=Input.touch.r=false;
+      Input.touch.jx=0; Input.touch.jy=0;
       pad.classList.remove('lActive','rActive');
     };
     pad.addEventListener('pointerdown',e=>{ e.preventDefault(); activeId=e.pointerId; capture(pad,e); setDir(e); });
