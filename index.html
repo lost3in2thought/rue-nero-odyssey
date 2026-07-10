@@ -7,6 +7,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rue &amp; Nero">
+<meta name="theme-color" content="#050110">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <style>
   :root{ --glow:#ff6ee7; }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -78,21 +83,31 @@
 
   /* ---------- touch controls ---------- */
   #touchUI{ position:fixed; inset:0; z-index:15; pointer-events:none; }
-  #touchUI *{ pointer-events:auto; user-select:none; }
-  #padMove{ position:absolute; left:4vw; bottom:5vh; width:min(38vw,240px); height:min(20vh,110px);
-    display:flex; border-radius:18px; overflow:hidden; border:2px solid rgba(255,255,255,.25); background:rgba(255,255,255,.05); }
-  #padMove .half{ flex:1; display:flex; align-items:center; justify-content:center; font-size:34px; opacity:.6; }
-  #padMove.lActive .half:first-child, #padMove.rActive .half:last-child{ background:rgba(255,110,231,.25); opacity:1; }
-  #padAct{ position:absolute; right:4vw; bottom:4vh; display:flex; align-items:flex-end; gap:12px; }
+  #touchUI *{ pointer-events:auto; }
+  #touchUI, #touchUI *{ user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; touch-action:none; }
+  #touchUI svg{ pointer-events:none; display:block; }
+  #padMove{ position:absolute; left:max(3vw, env(safe-area-inset-left)); bottom:calc(4vh + env(safe-area-inset-bottom));
+    width:min(42vw,280px); height:min(24vh,132px);
+    display:flex; border-radius:20px; overflow:hidden; border:2px solid rgba(255,255,255,.28); background:rgba(255,255,255,.06); }
+  #padMove .half{ flex:1; display:flex; align-items:center; justify-content:center; opacity:.55; }
+  #padMove .half svg{ width:min(9vmin,42px); height:min(9vmin,42px); }
+  #padMove .half:first-child{ border-right:1px dashed rgba(255,255,255,.18); }
+  #padMove.lActive .half:first-child, #padMove.rActive .half:last-child{ background:rgba(255,110,231,.3); opacity:1; }
+  #padAct{ position:absolute; right:max(3vw, env(safe-area-inset-right)); bottom:calc(3.5vh + env(safe-area-inset-bottom));
+    display:flex; align-items:flex-end; gap:14px; }
   .tbtn{ display:flex; align-items:center; justify-content:center; border-radius:50%;
-    border:2px solid rgba(255,255,255,.3); background:rgba(255,255,255,.07); color:#fff; font-size:17px; }
-  .tbtn.down{ background:rgba(255,110,231,.35); border-color:var(--glow); }
-  #tRun{ width:15vmin; height:15vmin; max-width:76px; max-height:76px; font-size:13px; }
-  #tSpin{ width:17vmin; height:17vmin; max-width:86px; max-height:86px; }
-  #tJump{ width:21vmin; height:21vmin; max-width:108px; max-height:108px; font-size:22px; }
-  #topBtns{ position:absolute; top:calc(8px + env(safe-area-inset-top)); right:10px; display:flex; gap:8px; }
-  #topBtns button{ width:44px; height:44px; border-radius:12px; border:1.5px solid rgba(255,255,255,.3);
-    background:rgba(10,4,26,.5); color:#fff; font-size:19px; cursor:pointer; }
+    border:2.5px solid rgba(255,255,255,.32); background:rgba(255,255,255,.08); color:#fff;
+    box-shadow:0 2px 12px rgba(0,0,0,.3); }
+  .tbtn.down{ background:rgba(255,110,231,.4); border-color:var(--glow); transform:scale(.94); }
+  .tbtn span{ font-size:min(3.2vmin,14px); font-weight:bold; letter-spacing:1px; }
+  .tbtn svg{ width:52%; height:52%; }
+  #tRun{ width:17vmin; height:17vmin; max-width:84px; max-height:84px; }
+  #tSpin{ width:19vmin; height:19vmin; max-width:94px; max-height:94px; }
+  #tJump{ width:24vmin; height:24vmin; max-width:120px; max-height:120px; }
+  #topBtns{ position:absolute; top:calc(8px + env(safe-area-inset-top)); right:max(10px, env(safe-area-inset-right)); display:flex; gap:10px; }
+  #topBtns button{ width:48px; height:48px; border-radius:14px; border:1.5px solid rgba(255,255,255,.3);
+    background:rgba(10,4,26,.55); color:#fff; font-size:20px; cursor:pointer;
+    user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; touch-action:manipulation; }
 
   #rotateHint{ position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
     background:rgba(5,1,16,.95); font-size:20px; text-align:center; line-height:2; }
@@ -108,15 +123,25 @@
 <canvas id="hudTop"></canvas>
 
 <div id="touchUI" class="hidden">
-  <div id="padMove"><div class="half">◀</div><div class="half">▶</div></div>
+  <div id="padMove">
+    <div class="half"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 4 L6 12 L16 20 Z"/></svg></div>
+    <div class="half"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 4 L18 12 L8 20 Z"/></svg></div>
+  </div>
   <div id="padAct">
-    <div class="tbtn" id="tRun" data-tbtn="run">RUN</div>
-    <div class="tbtn" id="tSpin" data-tbtn="spin">🌀</div>
-    <div class="tbtn" id="tJump" data-tbtn="jump">Ⓐ</div>
+    <div class="tbtn" id="tRun" data-tbtn="run"><span>RUN</span></div>
+    <div class="tbtn" id="tSpin" data-tbtn="spin" aria-label="spin jump">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+        <path d="M20 12 A8 8 0 1 1 12 4"/><path d="M12 1 L12 7 L7 4 Z" fill="currentColor" stroke="none"/>
+      </svg>
+    </div>
+    <div class="tbtn" id="tJump" data-tbtn="jump" aria-label="jump">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 L21 13 H15 V21 H9 V13 H3 Z"/></svg>
+    </div>
   </div>
   <div id="topBtns">
-    <button id="tMusic">♪</button>
-    <button id="tPause">⏸</button>
+    <button id="tMusic" aria-label="music">♪</button>
+    <button id="tFS" aria-label="fullscreen">⛶</button>
+    <button id="tPause" aria-label="pause">⏸</button>
   </div>
 </div>
 
@@ -124,7 +149,7 @@
 <div id="menus">
   <div class="panel" id="pMain">
     <h1 class="gameTitle">RUE &amp; NERO'S<br>PSYCHEDELIC ODYSSEY</h1>
-    <p class="tag">two very good dogs cross the cosmic veil</p>
+    <p class="tag">two very good dogs chasing zoomies across the cosmos</p>
     <button class="mbtn" data-act="mode:classic">🎨 &nbsp;CLASSIC 2D — pixel dreams</button>
     <button class="mbtn" data-act="mode:odyssey">🌀 &nbsp;3D ODYSSEY — the deep dive</button>
     <button class="mbtn small" data-act="settings">⚙ settings</button>
@@ -152,7 +177,7 @@
   </div>
 
   <div class="panel hidden" id="pWin">
-    <h2 id="winTitle">TRANSCENDENCE ✧</h2>
+    <h2 id="winTitle">DREAM COMPLETE ✧</h2>
     <p class="tag">✧ what a good dog ✧</p>
     <p id="winStats" style="line-height:2"></p>
     <button class="mbtn" data-act="next" id="btnNext">→ next dream</button>
@@ -180,6 +205,7 @@
       <button data-t="auto">auto</button><button data-t="on">on</button><button data-t="off">off</button>
     </div></div>
     <button class="mbtn small" data-act="fullscreen">⛶ fullscreen</button>
+    <p class="hint hidden" id="fsHint">for fullscreen on iPhone: Share → <b>Add to Home Screen</b>, then launch from the icon</p>
     <button class="mbtn small" data-act="resetProgress">🧹 reset progress</button>
     <br><button class="mbtn small" data-act="back">← back</button>
   </div>

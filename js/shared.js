@@ -276,8 +276,12 @@ export function rumble(strong,weak,ms){
 /** Wire the DOM touch overlay. Elements: #padMove (slide left/right), and
     [data-tbtn] buttons: jump/spin/run. Edge presses feed Input.press(). */
 export function bindTouch(){
+  const ui=document.getElementById('touchUI');
+  if(ui) ui.addEventListener('contextmenu',e=>e.preventDefault());
+  const capture=(el,e)=>{ try{ el.setPointerCapture(e.pointerId); }catch(err){} };
   const pad=document.getElementById('padMove');
   if(pad){
+    let activeId=null;
     const setDir=(e)=>{
       const r=pad.getBoundingClientRect();
       const x=e.clientX-r.left;
@@ -286,23 +290,40 @@ export function bindTouch(){
       pad.classList.toggle('lActive',Input.touch.l);
       pad.classList.toggle('rActive',Input.touch.r);
     };
-    const clearDir=()=>{
+    const clearDir=e=>{
+      if(e&&activeId!=null&&e.pointerId!==activeId) return;
+      activeId=null;
       Input.touch.l=Input.touch.r=false;
       pad.classList.remove('lActive','rActive');
     };
-    pad.addEventListener('pointerdown',e=>{ pad.setPointerCapture(e.pointerId); setDir(e); e.preventDefault(); });
-    pad.addEventListener('pointermove',e=>{ if(e.buttons||e.pressure>0) setDir(e); });
+    pad.addEventListener('pointerdown',e=>{ e.preventDefault(); activeId=e.pointerId; capture(pad,e); setDir(e); });
+    pad.addEventListener('pointermove',e=>{ if(e.pointerId===activeId) setDir(e); });
     pad.addEventListener('pointerup',clearDir);
     pad.addEventListener('pointercancel',clearDir);
+    pad.addEventListener('lostpointercapture',clearDir);
   }
+  // action buttons: pointer capture means a thumb sliding off still holds,
+  // and release is always delivered — no dropped inputs mid-slide
   for(const el of document.querySelectorAll('[data-tbtn]')){
     const name=el.dataset.tbtn;
-    const on=e=>{ Input.touch[name]=true; Input.press(name); el.classList.add('down'); e.preventDefault(); };
-    const off=()=>{ Input.touch[name]=false; el.classList.remove('down'); };
+    let activeId=null;
+    const on=e=>{
+      e.preventDefault();
+      activeId=e.pointerId;
+      capture(el,e);
+      Input.touch[name]=true; Input.press(name);
+      el.classList.add('down');
+    };
+    const off=e=>{
+      if(e&&activeId!=null&&e.pointerId!==activeId) return;
+      activeId=null;
+      Input.touch[name]=false;
+      el.classList.remove('down');
+    };
     el.addEventListener('pointerdown',on);
     el.addEventListener('pointerup',off);
     el.addEventListener('pointercancel',off);
-    el.addEventListener('pointerleave',off);
+    el.addEventListener('lostpointercapture',off);
   }
 }
 
@@ -924,7 +945,7 @@ export const WORLDS={
     {name:'Neon Depths',arch:'cavern',hue:150,dark:0.35},
     {name:'Marmalade Skies',arch:'sky',hue:30,dark:0.05},
     {name:'Shroomie Hollow',arch:'forest',hue:100,dark:0.18},
-    {name:'Phantom Parlor',arch:'ghost',hue:265,dark:0.45},
+    {name:'Moonlight Parlor',arch:'ghost',hue:265,dark:0.45},
     {name:'Saffron Summits',arch:'peaks',hue:45,dark:0.1},
     {name:'Fractal Fortress',arch:'castle',hue:330,dark:0.4},
     {name:'The Overglow',arch:'star',hue:200,dark:0.15},
@@ -934,7 +955,7 @@ export const WORLDS={
     {name:'Violet Grottos',arch:'cavern',hue:280,dark:0.35},
     {name:'Cirrus Gardens',arch:'sky',hue:190,dark:0.05},
     {name:'Sporeling Woods',arch:'forest',hue:120,dark:0.2},
-    {name:'Spectral Atrium',arch:'ghost',hue:250,dark:0.45},
+    {name:'Moonbeam Atrium',arch:'ghost',hue:250,dark:0.45},
     {name:'Ziggurat Dunes',arch:'peaks',hue:35,dark:0.1},
     {name:'Third Eye Temple',arch:'castle',hue:265,dark:0.3},
     {name:'The Infinite Wag',arch:'star',hue:310,dark:0.15},

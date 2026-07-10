@@ -120,7 +120,7 @@ function buildLevelCards(){
 function showWinPanel(){
   winShown=true;
   const L=G.level, P=G.P;
-  $('winTitle').textContent=`${G.char.name.toUpperCase()} TRANSCENDS ✧`;
+  $('winTitle').textContent=`✧ ${G.char.name.toUpperCase()} DID IT! ✧`;
   $('winStats').innerHTML=
     `cosmic bones &nbsp;${P.bones} / ${L.totalBones}<br>`+
     `🎾 tennis balls &nbsp;${P.balls} / ${L.totalBalls||5}${P.balls>=(L.totalBalls||5)?' &nbsp;✧ all of them!':''}<br>`+
@@ -244,13 +244,29 @@ function initSettings(){
     paintSeg('segTouch','t',s.touch);
     updateTouchVisibility();
   });
-  if(!document.documentElement.requestFullscreen){
+  if(!fsSupported()){
     for(const b of document.querySelectorAll('[data-act="fullscreen"]')) b.style.display='none';
+    $('tFS').style.display='none';
+    if(isMobile) $('fsHint').classList.remove('hidden');
   }
 }
-function toggleFS(){
-  if(document.fullscreenElement) document.exitFullscreen();
-  else document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{});
+function fsSupported(){
+  const d=document.documentElement;
+  return !!(d.requestFullscreen||d.webkitRequestFullscreen);
+}
+async function toggleFS(){
+  try{
+    const d=document.documentElement;
+    if(document.fullscreenElement||document.webkitFullscreenElement){
+      await (document.exitFullscreen?document.exitFullscreen():document.webkitExitFullscreen());
+    } else if(d.requestFullscreen||d.webkitRequestFullscreen){
+      await (d.requestFullscreen?d.requestFullscreen():d.webkitRequestFullscreen());
+      // keep the dream widescreen on phones
+      if(isMobile&&screen.orientation&&screen.orientation.lock){
+        screen.orientation.lock('landscape').catch(()=>{});
+      }
+    }
+  }catch(e){}
 }
 
 // ---------------- touch ----------------
@@ -267,6 +283,7 @@ $('tPause').addEventListener('click',()=>{
   else if(G.state==='pause') resumeGame();
 });
 $('tMusic').addEventListener('click',()=>{ Sound.toggle(); });
+$('tFS').addEventListener('click',()=>{ Sound.unlock(); toggleFS(); });
 
 // ---------------- global input events ----------------
 window.addEventListener('keydown',e=>{

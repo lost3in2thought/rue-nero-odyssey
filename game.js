@@ -407,7 +407,7 @@ function updatePlayer(){
   if(P.grounded && spd>0.2) P.runPhase+=spd*0.05;
   if(P.grounded && spd<0.1 && !Input.l && !Input.r) P.idleT+=1/60; else P.idleT=0;
   if(P.inv>0)P.inv--;
-  if(P.star>0){ P.star--; if(P.star===0) toast('the glow fades…');
+  if(P.star>0){ P.star--; if(P.star===0) toast('star sparkle all used up — zoomies remain!');
     if(P.star%3===0) part(P.x+P.w/2+(Math.random()-0.5)*20, P.y+P.h-4, (Math.random()-0.5)*1, -Math.random()*1, 0.7, `hsla(${(gt*300+Math.random()*90)%360},100%,70%,1)`, 4, -0.02);
   }
   // checkpoint
@@ -456,7 +456,7 @@ function collectBone(x,y,n){
 
 function hurt(){
   if(P.inv>0||P.star>0) return;
-  if(P.big){ setBig(false); P.inv=130; Sound.hurtS(); rumble(0.8,0.4,220); toast('ouch — the vision dims'); }
+  if(P.big){ setBig(false); P.inv=130; Sound.hurtS(); rumble(0.8,0.4,220); toast('bonk! the cosmic kibble wore off'); }
   else {
     P.hearts--; P.inv=140; Sound.hurtS(); rumble(1,0.6,320);
     P.vy=-5; P.vx=-P.dir*3;
@@ -1115,7 +1115,7 @@ function drawTitle(){
   wavyTitle("RUE'S PSYCHEDELIC ODYSSEY",W/2,150,44);
   ctx.font='italic 17px Consolas, monospace';
   ctx.fillStyle='rgba(255,255,255,0.85)';
-  ctx.fillText('a very good girl crosses the cosmic veil',W/2,186);
+  ctx.fillText('a very good girl chasing zoomies across the cosmos',W/2,186);
   if(Math.sin(gt*3.5)>-0.4){
     ctx.font='bold 24px Consolas, monospace';
     ctx.fillStyle='#fff';
@@ -1140,7 +1140,7 @@ function drawPause(){
 function drawWin(){
   if(winT>1.2){
     veil(Math.min(0.5,(winT-1.2)*0.5));
-    wavyTitle('RUE TRANSCENDS ✧',W/2,170,44);
+    wavyTitle('✧ RUE DID IT! ✧',W/2,170,44);
     ctx.font='18px Consolas, monospace'; ctx.fillStyle='#fff'; ctx.textAlign='center';
     const m=Math.floor(playT/60), s=Math.floor(playT%60);
     ctx.fillText(`cosmic bones  ${P.bones} / ${totalBones}`,W/2,240);
@@ -1154,7 +1154,7 @@ function drawWin(){
 }
 function drawOver(){
   veil(Math.min(0.6,overT*0.6));
-  wavyTitle('THE TRIP FADES…',W/2,H/2-40,40);
+  wavyTitle('THE DREAM DRIFTS HOME…',W/2,H/2-40,40);
   ctx.font='18px Consolas, monospace'; ctx.fillStyle='#fff'; ctx.textAlign='center';
   ctx.fillText('score '+P.score,W/2,H/2+8);
   if(overT>1 && Math.sin(gt*3.5)>-0.4) ctx.fillText('press Ⓐ / ENTER to wake up and try again',W/2,H/2+48);

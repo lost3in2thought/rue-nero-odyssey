@@ -149,7 +149,7 @@ function updatePlayer(){
   if(P.grounded&&spd<0.1&&!Input.l&&!Input.r) P.idleT+=1/60; else P.idleT=0;
   if(P.inv>0)P.inv--;
   if(P.star>0){
-    P.star--; if(P.star===0) toast('the glow fades…');
+    P.star--; if(P.star===0) toast('star sparkle all used up — zoomies remain!');
     if(P.star%2===0) part(P.x+P.w/2+(Math.random()-0.5)*24,P.y+P.h-6,(Math.random()-0.5)*1,-Math.random()*1,0.8,(G.gt*300+Math.random()*90)%360,1,0.7,5,-0.02);
   }
   // checkpoint
@@ -205,7 +205,7 @@ function collectBone(x,y,n){
 function hurt(){
   const P=G.P;
   if(P.inv>0||P.star>0) return;
-  if(P.big){ setBig(false); P.inv=130; Sound.hurtS(); rumble(0.8,0.4,220); toast('ouch — the vision dims'); }
+  if(P.big){ setBig(false); P.inv=130; Sound.hurtS(); rumble(0.8,0.4,220); toast('bonk! the cosmic kibble wore off'); }
   else{
     P.hearts--; P.inv=140; Sound.hurtS(); rumble(1,0.6,320);
     P.vy=-5; P.vx=-P.dir*3;
