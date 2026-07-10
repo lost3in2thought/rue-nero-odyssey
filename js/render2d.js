@@ -177,6 +177,7 @@ export const Render2D={
     this.drawItems();
     this.drawTiles();
     this.drawBones();
+    this.drawBalls();
     this.drawEnemies();
     this.drawPlayer();
     this.drawParts();
@@ -296,6 +297,27 @@ export const Render2D={
           this.rr(x+1,y+2,TILE-2,11,5);
           ctx.fillStyle=`hsla(${(hue+150)%360},100%,80%,${0.3+0.2*Math.sin(gt*3+c)})`;
           ctx.fillRect(x+4,y+14,TILE-8,3);
+        } else if(t===8){
+          // bounce bloom: springy coil + glowing petal pad
+          const squish=1+0.15*Math.sin(gt*6+c);
+          ctx.strokeStyle=`hsl(${(hue+110)%360},70%,55%)`;
+          ctx.lineWidth=2.5;
+          for(let i=0;i<3;i++){
+            ctx.beginPath();
+            ctx.ellipse(x+16,y+26-i*5,9-i*1.5,3,0,0,TAU);
+            ctx.stroke();
+          }
+          const g=ctx.createRadialGradient(x+16,y+8,2,x+16,y+8,15);
+          g.addColorStop(0,'#f4ffb0');
+          g.addColorStop(0.6,`hsl(${(hue+90)%360},95%,62%)`);
+          g.addColorStop(1,`hsla(${(hue+90)%360},95%,55%,0.25)`);
+          ctx.fillStyle=g;
+          ctx.beginPath(); ctx.ellipse(x+16,y+9,14,6*squish,0,0,TAU); ctx.fill();
+          for(let p=0;p<6;p++){
+            const a=p/6*TAU+gt*1.5;
+            ctx.fillStyle=`hsla(${(hue+90+p*20)%360},95%,72%,0.85)`;
+            ctx.beginPath(); ctx.ellipse(x+16+Math.cos(a)*13,y+9+Math.sin(a)*4.5,4,2.4,a,0,TAU); ctx.fill();
+          }
         }
       }
     }
@@ -315,6 +337,24 @@ export const Render2D={
       for(const [bx,byy] of [[-7,-4],[-7,4],[7,-4],[7,4]]){
         ctx.beginPath(); ctx.arc(bx,byy*0.9,4,0,TAU); ctx.fill();
       }
+      ctx.restore();
+    }
+  },
+  drawBalls(){
+    const ctx=this.ctx, gt=G.gt;
+    for(const bl of G.ballsArr){
+      if(bl.taken) continue;
+      const x=bl.x-G.camX;
+      if(x<-40||x>W+40) continue;
+      const y=bl.y+Math.sin(gt*2.2+bl.t)*4;
+      ctx.save(); ctx.translate(x,y); ctx.rotate(gt*2+bl.t);
+      ctx.fillStyle=`hsla(${(this.hue*3+70)%360},100%,75%,0.35)`;
+      ctx.beginPath(); ctx.arc(0,0,16,0,TAU); ctx.fill();
+      ctx.fillStyle='#d7f74a';
+      ctx.beginPath(); ctx.arc(0,0,10,0,TAU); ctx.fill();
+      ctx.strokeStyle='#fdfef2'; ctx.lineWidth=2.2;
+      ctx.beginPath(); ctx.arc(-9,0,10.5,-0.9,0.9); ctx.stroke();
+      ctx.beginPath(); ctx.arc(9,0,10.5,Math.PI-0.9,Math.PI+0.9); ctx.stroke();
       ctx.restore();
     }
   },

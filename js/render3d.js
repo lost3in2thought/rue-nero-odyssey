@@ -312,6 +312,47 @@ export const Render3D={
       world.lotusMeshes.push(mesh);
       this.worldGroup.add(mesh);
     }
+    // bounce blooms
+    world.bloomMat=stdM(0xd6ff5e,0.35,{emissive:0x9fdd22,emissiveIntensity:1.3});
+    world.bloomMeshes=[];
+    const coilMat=stdM(0x55cc66,0.5,{emissive:0x228833,emissiveIntensity:0.4});
+    const petalMat=stdM(0xffe9f7,0.4,{emissive:0xff9ad4,emissiveIntensity:0.8});
+    for(let c=0;c<LW;c++) for(let r=0;r<ROWS;r++) if(tget(c,r)===8){
+      const g=new THREE.Group();
+      g.position.set(c*TILE+16,-(r*TILE)-24,0);
+      const coil=new THREE.Mesh(new THREE.CylinderGeometry(6,9,18,10),coilMat);
+      coil.position.y=8; g.add(coil);
+      const pad=new THREE.Mesh(new THREE.CylinderGeometry(15,13,6,12),world.bloomMat);
+      pad.position.y=20; g.add(pad);
+      for(let p=0;p<6;p++){
+        const a=p/6*TAU;
+        const petal=new THREE.Mesh(new THREE.SphereGeometry(4.4,8,6),petalMat);
+        petal.scale.set(1.4,0.5,0.9);
+        petal.position.set(Math.cos(a)*14,20,Math.sin(a)*14);
+        petal.rotation.y=-a;
+        g.add(petal);
+      }
+      g.userData={pad,ph:c*0.7};
+      world.bloomMeshes.push(g);
+      this.worldGroup.add(g);
+    }
+    // tennis balls (the squeaky five)
+    world.ballMeshes=[];
+    const ballMat=stdM(0xd7f74a,0.3,{emissive:0xa8d824,emissiveIntensity:1.0});
+    const seamMat=stdM(0xffffff,0.4,{emissive:0xffffff,emissiveIntensity:0.45});
+    for(const bl of G.ballsArr){
+      const g=new THREE.Group();
+      g.add(new THREE.Mesh(new THREE.SphereGeometry(11,16,12),ballMat));
+      const seam=new THREE.Mesh(new THREE.TorusGeometry(10.2,1.1,6,32),seamMat);
+      seam.rotation.x=0.9; seam.rotation.y=0.5;
+      g.add(seam);
+      const glow=new THREE.Mesh(new THREE.SphereGeometry(15,12,10),
+        new THREE.MeshBasicMaterial({color:0xd7f74a,transparent:true,opacity:0.16,blending:THREE.AdditiveBlending,depthWrite:false,fog:false}));
+      g.add(glow);
+      g.userData={bl};
+      world.ballMeshes.push(g);
+      this.worldGroup.add(g);
+    }
     // bones (instanced)
     const boneGeo=this.mergeGeoms([
       this.xform(new THREE.CylinderGeometry(3.2,3.2,13,8),0,0,0,0,0,Math.PI/2),
@@ -793,6 +834,20 @@ export const Render3D={
     }
     for(const pm of world.padMats) pm.emissiveIntensity=1.0+0.6*Math.sin(t*3)+G.trip*0.6;
     if(world.qMat) world.qMat.emissiveIntensity=0.7+0.4*Math.sin(t*4);
+    if(world.bloomMat) world.bloomMat.emissiveIntensity=1.1+0.6*Math.sin(t*5);
+    if(world.bloomMeshes) for(const g of world.bloomMeshes){
+      g.userData.pad.scale.y=1+0.25*Math.sin(t*6+g.userData.ph);
+      g.rotation.y=t*0.8+g.userData.ph;
+    }
+    if(world.ballMeshes) for(const g of world.ballMeshes){
+      const bl=g.userData.bl;
+      g.visible=!bl.taken;
+      if(!bl.taken){
+        g.position.set(bl.x,-(bl.y+Math.sin(t*2.2+bl.t)*4),8);
+        g.rotation.z=t*2+bl.t;
+        g.rotation.y=t*1.3;
+      }
+    }
     // block bounce (timer decremented in logic)
     for(const key in G.bounceAnim){
       const mesh=world.qMeshes[key];

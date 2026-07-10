@@ -10,9 +10,9 @@ export const GRAV=0.42, MAXFALL=10;
 
 export const G={
   mode:null, level:null, char:CHARS.rue, LW:0, grid:null, blockItems:{}, bounceAnim:{},
-  bonesArr:[], enemies:[], tipsArr:[], items:[], parts:[], floats:[], toasts:[],
+  bonesArr:[], ballsArr:[], enemies:[], tipsArr:[], items:[], parts:[], floats:[], toasts:[],
   P:{x:0,y:0,w:34,h:26,vx:0,vy:0,dir:1,grounded:false,coyote:0,jbuf:0,jbufSpin:false,
-     spinning:false,spinA:0,big:false,star:0,inv:0,hearts:3,bones:0,score:0,combo:0,
+     spinning:false,spinA:0,big:false,star:0,inv:0,hearts:3,bones:0,balls:0,score:0,combo:0,
      runPhase:0,idleT:0,prevY:0},
   camX:0, gt:0, playT:0, winT:0, overT:0,
   trip:0.35, tripPulse:0,
@@ -37,11 +37,11 @@ export function loadLevel(mode,levelDef,charId){
   G.mode=mode; G.level=L;
   G.char=CHARS[charId||Save.settings.char]||CHARS.rue;
   G.LW=L.LW; G.grid=L.grid; G.blockItems=L.blockItems; G.bounceAnim={};
-  G.bonesArr=L.bones; G.enemies=L.enemies; G.tipsArr=L.tips;
+  G.bonesArr=L.bones; G.ballsArr=L.balls||[]; G.enemies=L.enemies; G.tipsArr=L.tips;
   G.items=[]; G.parts=[]; G.floats=[]; G.toasts.length=0;
   const P=G.P;
   P.x=L.startX; P.y=L.startY; P.w=34; P.h=26; P.vx=0; P.vy=0; P.dir=1;
-  P.big=false; P.star=0; P.inv=0; P.hearts=3; P.bones=0; P.score=0; P.combo=0;
+  P.big=false; P.star=0; P.inv=0; P.hearts=3; P.bones=0; P.balls=0; P.score=0; P.combo=0;
   P.grounded=false; P.spinning=false; P.spinA=0; P.idleT=0;
   G.camX=0; G.playT=0; G.winT=0; G.overT=0;
   G.checkpointHit=false; G.tripPulse=0; G.newBest=false;
@@ -89,8 +89,8 @@ function moveEntity(e,opts){
     const r=Math.floor((e.y+e.h)/TILE);
     for(let c=c0;c<=c1;c++){
       const t=tget(c,r);
-      if(isSolid(t)||(t===7&&opts.oneway&&prevBottom<=r*TILE+6)){
-        e.y=r*TILE-e.h; e.vy=0; col.d=true; break;
+      if(isSolid(t)||((t===7||t===8)&&opts.oneway&&prevBottom<=r*TILE+6)){
+        e.y=r*TILE-e.h; e.vy=0; col.d=true; col.padT=t; break;
       }
     }
   } else if(e.vy<0){
@@ -136,6 +136,13 @@ function updatePlayer(){
   const col=moveEntity(P,{oneway:true});
   P.grounded=col.d;
   if(col.u&&col.bumped) hitBlock(col.bumped[0],col.bumped[1],col.bumped[2]);
+  // bounce bloom launch
+  if(col.d&&col.padT===8){
+    P.vy=-(Input.jump||Input.spin?16.5:14);
+    P.grounded=false; P.coyote=0;
+    Sound.boing(); rumble(0.3,0.6,140); addTrip(0.12);
+    for(let i=0;i<10;i++) part(P.x+P.w/2,P.y+P.h,(Math.random()-0.5)*4,-Math.random()*3,0.7,(100+Math.random()*60)%360,0.95,0.7,5,0.1);
+  }
   if(P.grounded){ P.spinning=false; P.combo=0; }
   if(P.spinning) P.spinA+=0.45;
   if(P.grounded&&spd>0.2) P.runPhase+=spd*0.05;
@@ -155,7 +162,7 @@ function updatePlayer(){
   if(P.x+P.w/2>=L.gateX&&G.state==='play'){
     P.vx=0; G.winT=0;
     P.score+=Math.max(0,Math.round((300-G.playT))*10);
-    G.newBest=Save.recordWin(L.id,P.score,P.bones,G.playT);
+    G.newBest=Save.recordWin(L.id,P.score,P.bones,G.playT,P.balls);
     Sound.winS(); rumble(0.6,0.9,500);
     mandalaBurst(L.gateX+16,L.gateY-120);
     setState('win');
@@ -324,6 +331,20 @@ function updateBones(){
     const pad=8;
     if(P.x-pad<b.x+8&&P.x+P.w+pad>b.x-8&&P.y-pad<b.y+8&&P.y+P.h+pad>b.y-8){
       b.taken=true; collectBone(b.x,b.y,1);
+    }
+  }
+  // tennis balls — the squeaky treasures
+  for(const bl of G.ballsArr){
+    if(bl.taken) continue;
+    bl.t+=1/60;
+    const pad=12;
+    if(P.x-pad<bl.x+10&&P.x+P.w+pad>bl.x-10&&P.y-pad<bl.y+10&&P.y+P.h+pad>bl.y-10){
+      bl.taken=true;
+      P.balls++; P.score+=1000;
+      Sound.squeak(); rumble(0.3,0.8,200); addTrip(0.3);
+      G.floats.push({x:bl.x,y:bl.y,txt:'🎾 +1000',t:1.2});
+      for(let i=0;i<16;i++) part(bl.x,bl.y,(Math.random()-0.5)*5,-Math.random()*4,1.0,70+Math.random()*30,0.95,0.7,5,0.1);
+      if(P.balls>=5) toast('🎾 all five tennis balls! very good dog!');
     }
   }
 }

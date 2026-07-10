@@ -63,12 +63,13 @@ export const Save={
   store(){ try{localStorage.setItem(this.KEY,JSON.stringify(this.data));}catch(e){} },
   get settings(){ return this.data.settings; },
   stat(id){ return this.data.progress[id]||null; },
-  recordWin(id,score,bones,time){
+  recordWin(id,score,bones,time,balls){
     const p=this.data.progress[id]||(this.data.progress[id]={});
     const newBest=score>(p.best||0);
     p.done=true;
     p.best=Math.max(p.best||0,score);
     p.bones=Math.max(p.bones||0,bones);
+    p.balls=Math.max(p.balls||0,balls||0);
     p.time=Math.min(p.time==null?1e9:p.time,Math.round(time));
     this.store();
     return newBest;
@@ -190,6 +191,8 @@ export const Sound={
   winS(){ [523,659,784,1047,784,1047,1319,1568].forEach((f,i)=>setTimeout(()=>this.blip(f,f,0.22,'triangle',0.12),i*140)); },
   overS(){ [392,330,262,196].forEach((f,i)=>setTimeout(()=>this.blip(f,f*0.97,0.4,'triangle',0.1),i*260)); },
   uiS(){ this.blip(520,700,0.08,'triangle',0.07); },
+  squeak(){ this.blip(1150,1750,0.09,'sawtooth',0.05); setTimeout(()=>this.blip(1550,880,0.13,'sawtooth',0.05),85); },
+  boing(){ this.blip(150,700,0.28,'triangle',0.13); },
 };
 
 // ---------------- input (keyboard + gamepad + touch) ----------------
@@ -313,7 +316,7 @@ class LevelBuilder{
     this.LW=lw;
     this.grid=new Uint8Array(lw*ROWS);
     this.blockItems={};
-    this.bones=[]; this.enemies=[]; this.tips=[];
+    this.bones=[]; this.enemies=[]; this.tips=[]; this.balls=[];
   }
   set(c,r,v){ if(c>=0&&c<this.LW&&r>=0&&r<ROWS) this.grid[r*this.LW+c]=v; }
   get(c,r){ if(c<0||c>=this.LW) return 1; if(r<0||r>=ROWS) return 0; return this.grid[r*this.LW+c]; }
@@ -327,6 +330,11 @@ class LevelBuilder{
   lotus(c0,c1,r){ for(let c=c0;c<=c1;c++) this.set(c,r,7); }
   bone(c,r){ this.bones.push({x:c*TILE+16,y:r*TILE+16,taken:false,t:(c*0.7+r*1.3)%6}); }
   bonesRow(c0,c1,r){ for(let c=c0;c<=c1;c++) this.bone(c,r); }
+  /** Tennis ball — the special 5-per-level collectible (dragon-coin style). */
+  ball(c,r){ this.balls.push({x:c*TILE+16,y:r*TILE+16,taken:false,t:(c*0.9)%6}); }
+  ballAt(x,y){ this.balls.push({x,y,taken:false,t:(x*0.03)%6}); }
+  /** Bounce bloom — springy flower tile (type 8), lands like a lotus then launches. */
+  bloom(c,r){ this.set(c,r,8); }
   shroomie(c){ this.enemies.push({type:'shroom',c,x:c*TILE+4,y:0,w:24,h:22,vx:-0.8,vy:0,alive:true,active:false,dying:false,squash:1,hueOff:(c*37)%360}); }
   jelly(c,r){ this.enemies.push({type:'jelly',x:c*TILE+3,y:r*TILE+3,w:26,h:26,baseY:r*TILE+3,ph:(c*1.7)%TAU,alive:true,active:true,dying:false,squash:1,hueOff:(c*61)%360}); }
   tip(c,r,text){ this.tips.push({x:c*TILE,y:r*TILE,text}); }
@@ -343,6 +351,7 @@ class LevelBuilder{
       ...meta,
       LW:this.LW, grid:this.grid, blockItems:this.blockItems,
       bones:this.bones, enemies:this.enemies, tips:this.tips,
+      balls:this.balls, totalBalls:this.balls.length,
       totalBones:this.bones.length+blockBones,
       checkpointX:cpC*TILE, cpY:this.groundTopAt(cpC),
       gateX:gC*TILE, gateY:this.groundTopAt(gC),
@@ -410,6 +419,7 @@ function buildMeadow(){
   b.groundCol(173,13); b.groundCol(174,12); b.groundCol(175,11); b.groundCol(176,10); b.groundCol(177,9); b.groundCol(178,9);
   b.ground(179,195,14);
   b.bonesRow(181,184,13);
+  b.ball(13,7); b.ball(50,5); b.ball(103,5); b.ball(139,6); b.ball(183,10);
   return b.finish({checkpointCol:92,gateCol:186});
 }
 
@@ -478,6 +488,7 @@ function buildDepths(){
   b.shroomie(185); b.shroomie(188);
   b.bonesRow(184,190,13);
   b.groundCol(191,13); b.groundCol(192,12); b.groundCol(193,11);
+  b.ball(29,5); b.ball(58,5); b.ball(83,9); b.ball(126,10); b.ball(152,4);
   return b.finish({checkpointCol:100,gateCol:198});
 }
 
@@ -543,7 +554,8 @@ function buildAstral(){
   b.ground(171,197,14);
   b.groundCol(174,13); b.groundCol(175,12); b.groundCol(176,11); b.groundCol(177,10); b.groundCol(178,9);
   b.bonesRow(182,186,13);
-  return b.finish({checkpointCol:95,gateCol:189});
+  b.ball(14,6); b.ball(45,7); b.ball(66,6); b.ball(110,5); b.ball(144,4);
+  return b.finish({checkpointCol:89,gateCol:189});
 }
 
 // ---------- Level: Temple of the Third Eye (odyssey L2) ----------
@@ -573,8 +585,9 @@ function buildTemple(){
   b.bonesRow(61,62,11); b.bonesRow(65,66,9); b.bonesRow(69,70,11); b.bonesRow(73,74,8);
   b.jelly(67,7); b.jelly(75,6);
   b.tip(61,7,'the rhythm of pillars');
-  // double-decker temple interior
+  // double-decker temple interior (bounce bloom grants access to the upper floor)
   b.ground(77,104,14);
+  b.bloom(78,13);
   b.bricks(80,101,9);   // upper floor
   b.q(84,9,'bone'); b.q(92,9,'star'); b.q(98,9,'bone');
   b.shroomie(82); b.shroomie(88); b.shroomie(95);   // lower floor dwellers
@@ -582,7 +595,7 @@ function buildTemple(){
   b.bricks(80,82,5); b.bricks(99,101,5);
   b.bonesRow(84,97,4);  // treasures atop the upper floor
   b.jelly(90,2);
-  b.tip(79,12,'two floors — big Rue opens the way up');
+  b.tip(79,11,'ride the BOUNCE BLOOM to the upper floor — hold Ⓐ to soar');
   b.tip(101,10,'checkpoint ✧');
   // pillar rhythm II (tighter)
   b.ground(107,108,12); b.ground(111,112,9); b.ground(115,116,12); b.ground(119,120,8); b.ground(123,124,11);
@@ -613,20 +626,346 @@ function buildTemple(){
   b.groundCol(186,13); b.groundCol(187,12); b.groundCol(188,11);
   b.bonesRow(190,194,13);
   b.pipe(203,11,14);
+  b.ball(30,3); b.ball(73,6); b.ball(90,4); b.ball(120,4); b.ball(160,5);
   return b.finish({checkpointCol:103,gateCol:197});
 }
 
-/** Level registry: each mode has its own campaign. */
-export const LEVELS={
+/* ============================================================
+   PROCEDURAL DREAM GENERATOR
+   8 worlds × 4 levels per mode (64 total). Deterministic seeds,
+   SMW-inspired archetype segments, safe-by-construction layout
+   rules (gaps ≤4, rises ≤2 across jumps, blocks within reach),
+   5 tennis balls per level, bounce blooms in athletic worlds.
+   ============================================================ */
+function mulberry32(a){
+  return function(){
+    a|=0; a=a+0x6D2B79F5|0;
+    let t=Math.imul(a^a>>>15,1|a);
+    t=t+Math.imul(t^t>>>7,61|t)^t;
+    return ((t^t>>>14)>>>0)/4294967296;
+  };
+}
+
+const ARCHS={
+  meadow:{segs:[['flat',3],['hill',2],['gap',2],['bricks',2],['pipes',1],['lotus',1],['gauntlet',1]],ceil:false},
+  cavern:{segs:[['flat',2],['pipes',2],['bricks',2],['gap',2],['gauntlet',1],['lotus',1],['hill',1]],ceil:true},
+  sky:{segs:[['lotus',3],['pillars',3],['blooms',2],['gap',2],['stairs',1],['flat',1]],ceil:false},
+  forest:{segs:[['pillars',2],['bricks',2],['blooms',1],['hill',2],['gauntlet',2],['flat',2]],ceil:false},
+  ghost:{segs:[['ghostG',3],['bricks',2],['deck',2],['pipes',1],['lotus',1],['flat',1]],ceil:'partial'},
+  peaks:{segs:[['hill',3],['stairs',3],['gap',2],['pillars',2],['flat',1]],ceil:false},
+  castle:{segs:[['bricks',2],['deck',2],['gauntlet',2],['pipes',2],['gap',1],['colonnade',1],['flat',1]],ceil:true},
+  star:{segs:[['pillars',2],['lotus',2],['blooms',2],['gauntlet',2],['deck',1],['gap',2],['hill',1]],ceil:false},
+};
+
+function genLevel(seed,arch,d,lw){
+  const R=mulberry32(seed);
+  const ri=(a,c)=>a+Math.floor(R()*(c-a+1));
+  const ch=p=>R()<p;
+  const b=new LevelBuilder(lw);
+  const table=ARCHS[arch];
+  const hasCeil=!!table.ceil;
+  let cx=0, top=14;
+  const flats=[], specials=[], cpCands=[];
+  let shroomN=0, jellyN=0, bloomTip=false;
+  let starBudget=d>0.45?2:1;
+  const shroomCap=6+Math.round(d*9), jellyCap=3+Math.round(d*7);
+  const addShroom=c=>{ if(shroomN<shroomCap){ b.shroomie(c); shroomN++; } };
+  const addJelly=(c,r)=>{ if(jellyN<jellyCap&&r>=(hasCeil?5:2)&&r<=12){ b.jelly(c,r); jellyN++; } };
+  const spec=(c,r)=>specials.push({x:c*TILE+16,y:Math.max(hasCeil?6:2,r)*TILE+16,used:false});
+  const qItem=()=>{ if(starBudget>0&&ch(0.18)){ starBudget--; return 'star'; } return ch(0.2)?'shroom':(ch(0.22)?'bones5':'bone'); };
+
+  function grd(len,deco){
+    b.ground(cx,cx+len-1,top);
+    flats.push([cx,cx+len-1,top]);
+    if(len>=6) cpCands.push(cx+(len>>1));
+    if(deco!==false){
+      if(ch(0.55)) b.bonesRow(cx+1,cx+len-2,top-1);
+      if(len>=7&&ch(0.3+d*0.35)) addShroom(cx+ri(2,len-3));
+      if(len>=8&&ch(0.3)) b.q(cx+ri(2,len-3),top-4,qItem());
+    }
+    cx+=len;
+  }
+  const segFlat=()=>grd(ri(6,12));
+  function segGap(){
+    const w=Math.min(4,2+(ch(d)?1:0)+(ch(d*0.5)?1:0));
+    b.bonesRow(cx,cx+w-1,top-2);
+    if(w>=4&&ch(0.85-d*0.35)&&top<=12) b.lotus(cx+1,cx+2,top+2);
+    cx+=w;
+    grd(ri(4,8));
+  }
+  function segHill(){
+    const steps=ri(2,4);
+    for(let i=0;i<steps;i++){
+      top=clamp(top+ri(-2,2),8,14);
+      const len=ri(3,6);
+      b.ground(cx,cx+len-1,top);
+      flats.push([cx,cx+len-1,top]);
+      if(ch(0.4)) b.bonesRow(cx,cx+len-1,top-1);
+      cx+=len;
+    }
+    if(ch(0.5)) spec(cx-2,top-4);
+  }
+  function segPillars(){
+    let t=top;
+    const n=ri(3,5);
+    for(let i=0;i<n;i++){
+      const g=ri(2,3);
+      const riseMax=g===3?1:2;
+      const nt=clamp(t-ri(-2,riseMax),8,13);
+      if(ch(0.55-d*0.25)) b.lotus(cx,cx+g-1,14);
+      cx+=g;
+      b.ground(cx,cx+1,nt);
+      b.bonesRow(cx,cx+1,nt-1);
+      if(ch(d*0.5)) addJelly(cx,nt-4);
+      if(i===(n>>1)) spec(cx,nt-3);
+      t=nt; cx+=2;
+    }
+    cx+=ri(2,3);
+    top=clamp(t+ri(0,2),9,14);
+    grd(ri(5,9));
+  }
+  function segLotus(){
+    let t=top;
+    const n=ri(3,5);
+    for(let i=0;i<n;i++){
+      const g=ri(2,3);
+      const riseMax=g===3?1:2;
+      const nt=clamp(t-ri(-2,riseMax),7,13);
+      cx+=g;
+      const w=ch(0.3)?1:2;
+      b.lotus(cx,cx+w-1,nt);
+      b.bonesRow(cx,cx+w-1,nt-2);
+      if(i===(n>>1)) spec(cx,nt-3);
+      if(ch(d*0.4)) addJelly(cx+2,nt-5);
+      t=nt; cx+=w;
+    }
+    cx+=2;
+    top=clamp(t+ri(0,3),9,14);
+    grd(ri(5,9));
+  }
+  function segBricks(){
+    const len=ri(9,13);
+    const s=cx;
+    b.ground(cx,cx+len-1,top);
+    flats.push([s,s+len-1,top]);
+    cx+=len;
+    const b0=s+2, b1=s+len-3;
+    b.bricks(b0,b1,top-4);
+    const qn=ri(1,2);
+    for(let i=0;i<qn;i++) b.q(ri(b0,b1),top-4,qItem());
+    if(ch(0.5)&&!hasCeil){
+      b.bricks(b0+2,b1-2,top-7);
+      b.bonesRow(b0+2,b1-2,top-8);
+      spec(s+(len>>1),top-9);
+    } else b.bonesRow(b0,b1,top-1);
+    addShroom(s+1);
+    if(ch(d*0.6)) addShroom(s+len-2);
+  }
+  function segPipes(){
+    grd(ri(3,4),false);
+    const n=ri(2,4);
+    for(let i=0;i<n;i++){
+      const h=ri(2,3);
+      b.pipe(cx,top-h,top);
+      b.ground(cx,cx+1,top);
+      if(ch(0.5)) addJelly(cx+3,top-h-3);
+      if(i===(n>>1)) spec(cx,top-h-3);
+      cx+=2;
+      const g=ri(3,5);
+      b.ground(cx,cx+g-1,top);
+      flats.push([cx,cx+g-1,top]);
+      if(ch(0.5)) b.bonesRow(cx,cx+g-1,top-1);
+      cx+=g;
+    }
+  }
+  function segStairs(){
+    const rise=ri(3,5);
+    for(let i=0;i<rise;i++){ top=clamp(top-1,7,14); b.groundCol(cx,top); cx++; }
+    const len=ri(6,12);
+    b.ground(cx,cx+len-1,top);
+    flats.push([cx,cx+len-1,top]);
+    b.bonesRow(cx+1,cx+len-2,top-1);
+    if(ch(0.6)) addJelly(cx+(len>>1),top-4);
+    if(ch(0.5)) spec(cx+(len>>1),top-4);
+    cx+=len;
+    b.bone(cx,Math.min(14,top+2)-3);
+    top=clamp(top+ri(2,4),7,14);
+    grd(ri(4,7));
+  }
+  function segGauntlet(jbias){
+    const len=ri(12,18);
+    const s=cx;
+    b.ground(cx,cx+len-1,top);
+    flats.push([s,s+len-1,top]);
+    cpCands.push(s+(len>>1));
+    b.bonesRow(s+1,s+len-2,top-1);
+    const ne=2+Math.round(d*3);
+    for(let i=0;i<ne;i++){
+      const c=s+2+Math.floor((len-4)*(i+0.5)/ne);
+      if(jbias?ch(0.65):ch(0.3)) addJelly(c,top-4); else addShroom(c);
+    }
+    if(ch(0.5)){
+      const m=s+(len>>1);
+      b.bricks(m-1,m+1,top-4);
+      b.q(m,top-4,qItem());
+    }
+    cx+=len;
+  }
+  function segBlooms(){
+    const len=ri(9,12);
+    const s=cx;
+    b.ground(cx,cx+len-1,top);
+    flats.push([s,s+len-1,top]);
+    cx+=len;
+    const bc=s+ri(2,3);
+    b.bloom(bc,top-1);
+    for(let r=top-3;r>Math.max(2,top-8);r--) b.bone(bc,r);
+    const pc=Math.min(s+len-3,bc+ri(3,5));
+    const ph=Math.max(hasCeil?7:3,top-ri(6,7));
+    b.lotus(pc,pc+1,ph);
+    b.bonesRow(pc,pc+1,Math.max(2,ph-1));
+    spec(pc,ph-2);
+    if(!bloomTip){ b.tip(s+2,Math.max(3,top-9),'BOUNCE BLOOM — hold Ⓐ to soar higher!'); bloomTip=true; }
+  }
+  function segDeck(){
+    const len=ri(10,14);
+    const s=cx;
+    b.ground(cx,cx+len-1,top);
+    flats.push([s,s+len-1,top]);
+    cx+=len;
+    b.bloom(s+1,top-1);
+    b.bricks(s+3,s+len-2,top-5);
+    const qn=ri(1,2);
+    for(let i=0;i<qn;i++) b.q(ri(s+4,s+len-3),top-5,qItem());
+    b.bonesRow(s+4,s+len-3,top-6);
+    addShroom(s+3); addShroom(s+len-3);
+    spec(s+(len>>1),top-8);
+  }
+  function segColonnade(){
+    const rise=ri(2,3);
+    for(let i=0;i<rise;i++){ top=clamp(top-1,8,13); b.groundCol(cx,top); cx++; }
+    const len=ri(12,16);
+    const s=cx;
+    b.ground(cx,cx+len-1,top);
+    flats.push([s,s+len-1,top]);
+    let c=s+2;
+    while(c<s+len-4){
+      b.pipe(c,top-3,top);
+      if(ch(0.5)) addJelly(c+3,top-5);
+      c+=ri(4,6);
+    }
+    b.bonesRow(s+1,s+len-2,top-1);
+    spec(s+(len>>1),top-6);
+    cx+=len;
+    top=clamp(top+ri(2,3),8,14);
+    grd(ri(4,6));
+  }
+  const SEGS={flat:segFlat,gap:segGap,hill:segHill,pillars:segPillars,lotus:segLotus,bricks:segBricks,
+              pipes:segPipes,stairs:segStairs,gauntlet:()=>segGauntlet(false),ghostG:()=>segGauntlet(true),
+              blooms:segBlooms,deck:segDeck,colonnade:segColonnade};
+
+  // ---- assemble ----
+  grd(ri(9,12));
+  const bag=[];
+  for(const [nm,wt] of table.segs) for(let i=0;i<wt;i++) bag.push(nm);
+  let guard=0;
+  while(cx<lw-36&&guard++<90) SEGS[bag[(R()*bag.length)|0]]();
+  while(top<14&&cx<lw-18){ top=Math.min(14,top+2); b.ground(cx,cx+2,top); cx+=3; }
+  top=14;
+  const tail=Math.min(cx,lw-16);
+  b.ground(tail,lw-1,14);
+  flats.push([tail,lw-1,14]);
+  b.bonesRow(lw-14,lw-11,13);
+  const gateCol=lw-9;
+
+  // ---- ceiling for underground / fortress worlds ----
+  if(hasCeil){
+    const partial=table.ceil==='partial';
+    b.ceiling(0,lw-1,partial?0:1);
+    for(const [f0,f1,ft] of flats){
+      if(ft<12||f1-f0<6) continue;
+      for(let c=f0+2;c<f1-1;c+=ri(7,11)){
+        const depth=ri(2,4);
+        for(let r=partial?1:2;r<Math.min(depth+2,ft-8);r++) b.set(c,r,1);
+      }
+    }
+  }
+
+  // ---- checkpoint on real ground near the middle ----
+  let cands=cpCands.filter(c=>c>lw*0.34&&c<lw*0.72);
+  if(!cands.length) cands=cpCands.length?cpCands:[Math.floor(lw*0.5)];
+  const mid=lw*0.55;
+  let cpCol=cands.reduce((a,c)=>Math.abs(c-mid)<Math.abs(a-mid)?c:a,cands[0]);
+  let scan=0;
+  while(b.groundTopAt(cpCol)>=ROWS*TILE&&scan++<30) cpCol=(cpCol+1)%(lw-20);
+
+  // ---- 5 tennis balls, spread across the level ----
+  for(let i=0;i<5;i++){
+    const lo=i/5*lw*TILE, hi=(i+1)/5*lw*TILE;
+    const cand=specials.filter(s=>!s.used&&s.x>=lo&&s.x<hi);
+    if(cand.length){
+      const s=cand[(R()*cand.length)|0];
+      s.used=true;
+      b.ballAt(s.x,s.y);
+    } else {
+      let c=Math.floor((lo+hi)/2/TILE), tries=0;
+      while(tries++<40&&b.groundTopAt(c)>=ROWS*TILE) c=(c+1)%lw;
+      const gr=b.groundTopAt(c)/TILE;
+      b.ball(c,Math.max(hasCeil?6:2,gr-4));
+    }
+  }
+  return b.finish({checkpointCol:cpCol,gateCol,startCol:3});
+}
+
+/** World registry — 8 SMW-inspired worlds per mode, 4 dreams each. */
+export const WORLDS={
   classic:[
-    {id:'c1',name:'Awakening Meadow',sub:'where the veil first thins',theme:{hue:0,dark:0},build:buildMeadow},
-    {id:'c2',name:'Neon Depths',sub:'a cavern that dreams in color',theme:{hue:150,dark:0.35},build:buildDepths},
+    {name:'Lumen Meadows',arch:'meadow',hue:0,dark:0},
+    {name:'Neon Depths',arch:'cavern',hue:150,dark:0.35},
+    {name:'Marmalade Skies',arch:'sky',hue:30,dark:0.05},
+    {name:'Shroomie Hollow',arch:'forest',hue:100,dark:0.18},
+    {name:'Phantom Parlor',arch:'ghost',hue:265,dark:0.45},
+    {name:'Saffron Summits',arch:'peaks',hue:45,dark:0.1},
+    {name:'Fractal Fortress',arch:'castle',hue:330,dark:0.4},
+    {name:'The Overglow',arch:'star',hue:200,dark:0.15},
   ],
   odyssey:[
-    {id:'o1',name:'Astral Fields',sub:'the open sky of the mind',theme:{hue:0,dark:0},build:buildAstral},
-    {id:'o2',name:'Temple of the Third Eye',sub:'the geometry remembers you',theme:{hue:265,dark:0.3},build:buildTemple},
+    {name:'Astral Fields',arch:'meadow',hue:0,dark:0},
+    {name:'Violet Grottos',arch:'cavern',hue:280,dark:0.35},
+    {name:'Cirrus Gardens',arch:'sky',hue:190,dark:0.05},
+    {name:'Sporeling Woods',arch:'forest',hue:120,dark:0.2},
+    {name:'Spectral Atrium',arch:'ghost',hue:250,dark:0.45},
+    {name:'Ziggurat Dunes',arch:'peaks',hue:35,dark:0.1},
+    {name:'Third Eye Temple',arch:'castle',hue:265,dark:0.3},
+    {name:'The Infinite Wag',arch:'star',hue:310,dark:0.15},
   ],
 };
+// hand-crafted anchor levels keep their save ids and slots
+const HAND={ 'classic:0:0':{id:'c1',name:'Awakening Meadow',build:buildMeadow},
+             'classic:1:0':{id:'c2',name:'Neon Depths 1',build:buildDepths},
+             'odyssey:0:0':{id:'o1',name:'Astral Fields 1',build:buildAstral},
+             'odyssey:6:0':{id:'o2',name:'Temple of the Third Eye',build:buildTemple} };
+function makeCampaign(mode){
+  const out=[];
+  WORLDS[mode].forEach((wd,w)=>{
+    for(let l=0;l<4;l++){
+      const idx=w*4+l;
+      const hand=HAND[`${mode}:${w}:${l}`];
+      const theme={hue:(wd.hue+l*7)%360,dark:wd.dark};
+      if(hand){
+        out.push({id:hand.id,name:hand.name,sub:wd.name,world:w,slot:l,theme,build:hand.build});
+      } else {
+        const d=clamp(0.12+0.82*(idx/31),0,0.95);
+        const seed=(mode==='classic'?771001:911777)+idx*10133;
+        const lw=148+w*7+l*5;
+        out.push({id:`${mode[0]}${w+1}x${l+1}`,name:`${wd.name} ${l+1}`,sub:wd.name,world:w,slot:l,theme,
+                  build:()=>genLevel(seed,wd.arch,d,lw)});
+      }
+    }
+  });
+  return out;
+}
+export const LEVELS={classic:makeCampaign('classic'),odyssey:makeCampaign('odyssey')};
 export function levelUnlocked(mode,idx){
   if(idx===0) return true;
   const prev=LEVELS[mode][idx-1];

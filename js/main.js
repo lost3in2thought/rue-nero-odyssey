@@ -2,7 +2,7 @@
    PAWS ENGINE — main orchestrator
    Menus · settings · touch UI · shared HUD · game loop
    ============================================================ */
-import {VIEW_W as W,VIEW_H as H,TAU,clamp,isMobile,Save,Sound,Input,bindTouch,LEVELS,CHARS,levelUnlocked} from './shared.js';
+import {VIEW_W as W,VIEW_H as H,TAU,clamp,isMobile,Save,Sound,Input,bindTouch,LEVELS,WORLDS,CHARS,levelUnlocked} from './shared.js';
 import {G,loadLevel,update as logicUpdate} from './logic.js';
 import {Render2D,drawPortrait} from './render2d.js';
 import {Render3D} from './render3d.js';
@@ -41,7 +41,7 @@ function hidePanels(){
   $('menuBg').classList.add('hidden');
 }
 function rebuildSel(){
-  selItems=panel?[...$(panel).querySelectorAll('.mbtn:not(:disabled), .card:not(.locked), input[type=range]')]:[];
+  selItems=panel?[...$(panel).querySelectorAll('.mbtn:not(:disabled), .card:not(.locked), .ltile:not(.locked), input[type=range]')]:[];
   selIdx=0; paintSel();
 }
 function paintSel(){
@@ -93,18 +93,28 @@ function fmtTime(s){ const m=Math.floor(s/60); s=Math.floor(s%60); return m+':'+
 function buildLevelCards(){
   const wrap=$('levelCards'); wrap.innerHTML='';
   $('levelsTitle').textContent=(mode==='classic'?'🎨 classic dreams':'🌀 odyssey dreams')+' — '+CHARS[charId].name;
-  LEVELS[mode].forEach((d,i)=>{
-    const un=levelUnlocked(mode,i);
-    const st=Save.stat(d.id);
-    const card=document.createElement('div');
-    card.className='card'+(un?'':' locked');
-    if(un) card.dataset.idx=i;
-    let stat;
-    if(st&&st.done) stat=`<p class="statline">★ best ${st.best} · ${st.bones} bones · ${fmtTime(st.time)}</p>`;
-    else if(un) stat=`<p class="statline">not yet dreamed</p>`;
-    else stat=`<p>🔒 finish the previous dream</p>`;
-    card.innerHTML=`<h3>${i+1}. ${d.name}</h3><p>${d.sub}</p>${stat}`;
-    wrap.append(card);
+  WORLDS[mode].forEach((wd,w)=>{
+    const head=document.createElement('div');
+    head.className='lwname';
+    head.innerHTML=`<span class="wnum">world ${w+1}</span> ${wd.name}`;
+    wrap.append(head);
+    const grid=document.createElement('div');
+    grid.className='lgrid';
+    for(let l=0;l<4;l++){
+      const i=w*4+l;
+      const d=LEVELS[mode][i];
+      const un=levelUnlocked(mode,i);
+      const st=Save.stat(d.id);
+      const tile=document.createElement('div');
+      tile.className='ltile'+(un?'':' locked');
+      if(un) tile.dataset.idx=i;
+      const marks=(st&&st.done?'★':'')+(st&&st.balls>=5?' 🎾':'');
+      const sub=st&&st.done?`${st.best}`:(un?'···':'🔒');
+      tile.innerHTML=`<div class="lnum">${w+1}-${l+1}</div><div class="lmark">${marks||'&nbsp;'}</div><div class="lbest">${sub}</div>`;
+      tile.title=d.name;
+      grid.append(tile);
+    }
+    wrap.append(grid);
   });
 }
 function showWinPanel(){
@@ -113,6 +123,7 @@ function showWinPanel(){
   $('winTitle').textContent=`${G.char.name.toUpperCase()} TRANSCENDS ✧`;
   $('winStats').innerHTML=
     `cosmic bones &nbsp;${P.bones} / ${L.totalBones}<br>`+
+    `🎾 tennis balls &nbsp;${P.balls} / ${L.totalBalls||5}${P.balls>=(L.totalBalls||5)?' &nbsp;✧ all of them!':''}<br>`+
     `time &nbsp;${fmtTime(G.playT)}<br>`+
     `score &nbsp;${P.score}${G.newBest?' &nbsp;★ new best!':''}`;
   const hasNext=levelIdx+1<LEVELS[mode].length;
@@ -182,7 +193,7 @@ function doAct(act){
   }
 }
 $('menus').addEventListener('click',e=>{
-  const card=e.target.closest('.card');
+  const card=e.target.closest('.card,.ltile');
   if(card&&!card.classList.contains('locked')){
     if(card.dataset.char){
       charId=card.dataset.char;
@@ -310,6 +321,20 @@ function drawHUD(){
   hctx.font=`bold ${17*k}px Consolas, monospace`;
   hctx.fillStyle='#fff'; hctx.textAlign='left';
   hctx.fillText('× '+P.bones,46*k,64*k);
+  // tennis ball slots (the special five)
+  const totB=(G.level.totalBalls||5);
+  for(let i=0;i<totB;i++){
+    const bx=(28+i*17)*k, by=86*k;
+    if(i<P.balls){
+      hctx.fillStyle='#d7f74a';
+      hctx.beginPath(); hctx.arc(bx,by,6*k,0,TAU); hctx.fill();
+      hctx.strokeStyle='#fff'; hctx.lineWidth=1.4*k;
+      hctx.beginPath(); hctx.arc(bx-5*k,by,6.4*k,-0.8,0.8); hctx.stroke();
+    } else {
+      hctx.strokeStyle='rgba(255,255,255,0.3)'; hctx.lineWidth=1.4*k;
+      hctx.beginPath(); hctx.arc(bx,by,6*k,0,TAU); hctx.stroke();
+    }
+  }
   // score / time / level name
   hctx.textAlign='right';
   hctx.fillText('SCORE '+P.score,hw-20*k,30*k);
