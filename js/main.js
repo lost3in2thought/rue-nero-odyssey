@@ -354,6 +354,8 @@ window.addEventListener('keydown',e=>{
 });
 window.addEventListener('keyup',e=>routeKey(e,false));
 window.addEventListener('pointerdown',()=>Sound.unlock());
+window.addEventListener('touchend',()=>Sound.unlock(),{passive:true});
+window.addEventListener('click',()=>Sound.unlock());
 window.addEventListener('gamepadconnected',()=>{ Input.padOn=true; });
 window.addEventListener('blur',()=>pauseGame());
 document.addEventListener('visibilitychange',()=>{ if(document.hidden) pauseGame(); });

@@ -86,14 +86,14 @@
   #touchUI *{ pointer-events:auto; }
   #touchUI, #touchUI *{ user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; touch-action:none; }
   #touchUI svg{ pointer-events:none; display:block; }
-  #padMove{ position:absolute; left:max(3vw, env(safe-area-inset-left)); bottom:calc(4vh + env(safe-area-inset-bottom));
+  #padMove{ position:absolute; left:max(3vw, env(safe-area-inset-left)); bottom:calc(10vh + env(safe-area-inset-bottom));
     width:min(42vw,280px); height:min(24vh,132px);
     display:flex; border-radius:20px; overflow:hidden; border:2px solid rgba(255,255,255,.28); background:rgba(255,255,255,.06); }
   #padMove .half{ flex:1; display:flex; align-items:center; justify-content:center; opacity:.55; }
   #padMove .half svg{ width:min(9vmin,42px); height:min(9vmin,42px); }
   #padMove .half:first-child{ border-right:1px dashed rgba(255,255,255,.18); }
   #padMove.lActive .half:first-child, #padMove.rActive .half:last-child{ background:rgba(255,110,231,.3); opacity:1; }
-  #padAct{ position:absolute; right:max(3vw, env(safe-area-inset-right)); bottom:calc(3.5vh + env(safe-area-inset-bottom));
+  #padAct{ position:absolute; right:max(3vw, env(safe-area-inset-right)); bottom:calc(9.5vh + env(safe-area-inset-bottom));
     display:flex; align-items:flex-end; gap:14px; }
   .tbtn{ display:flex; align-items:center; justify-content:center; border-radius:50%;
     border:2.5px solid rgba(255,255,255,.32); background:rgba(255,255,255,.08); color:#fff;

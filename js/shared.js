@@ -80,10 +80,23 @@ export const Save={
 // ---------------- audio ----------------
 export const Sound={
   ctx:null,master:null,musicBus:null,sfxBus:null,delay:null,
-  on:true,bpm:92,step:0,nextT:0,timer:null,arpIdx:3,
+  on:true,bpm:92,step:0,nextT:0,timer:null,arpIdx:3,_mediaKicked:false,
   unlock(){
     if(!this.ctx) this.init();
     if(this.ctx&&this.ctx.state==='suspended') this.ctx.resume();
+    // iOS quirk: the hardware mute switch silences WebAudio unless a real
+    // media element has played once — kick the audio session into
+    // "playback" mode with a near-silent wav on the first gesture.
+    if(!this._mediaKicked){
+      this._mediaKicked=true;
+      try{
+        const a=document.createElement('audio');
+        a.setAttribute('playsinline','');
+        a.src='data:audio/wav;base64,UklGRjIAAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YQ4AAAAAAAAAAAAAAAAAAAAA';
+        const pr=a.play();
+        if(pr&&pr.catch) pr.catch(()=>{});
+      }catch(e){}
+    }
   },
   applyVolumes(){
     if(!this.ctx) return;
@@ -106,8 +119,10 @@ export const Sound={
       this.delay.connect(wet); wet.connect(this.musicBus);
       this.applyVolumes();
       this.nextT=c.currentTime+0.1;
-      this.timer=setInterval(()=>this.sched(),80);
+      this.timer=setInterval(()=>this.sched(),200);
+      this.master.gain.setValueAtTime(0,c.currentTime);
       this.master.gain.linearRampToValueAtTime(0.5,c.currentTime+1.5);
+      c.onstatechange=()=>{ if(c.state==='running') this.sched(); };
     }catch(e){ console.warn('audio init failed',e); }
   },
   toggle(){
@@ -119,8 +134,12 @@ export const Sound={
   f(m){ return 440*Math.pow(2,(m-69)/12); },
   sched(){
     if(!this.ctx||this.ctx.state!=='running') return;
+    const now=this.ctx.currentTime;
+    // if we were suspended or throttled, jump forward instead of
+    // scheduling a backlog of past notes
+    if(this.nextT<now) this.nextT=now+0.06;
     const s8=(60/this.bpm)/2;
-    while(this.nextT<this.ctx.currentTime+0.3){
+    while(this.nextT<now+0.9){
       this.note(this.nextT,this.step);
       this.step++; this.nextT+=s8;
     }
