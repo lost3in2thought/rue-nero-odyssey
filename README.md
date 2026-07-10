@@ -7,14 +7,21 @@ faster, floatier, slides more) — exploring an Alex Grey-inspired dreamscape.
 Two full render modes on one shared engine ("PAWS engine"):
 
 - **🎨 Classic 2D** — pixel-art sprites composited through a psychedelic
-  WebGL shader. Campaign: *Awakening Meadow* → *Neon Depths*.
+  WebGL shader.
 - **🌀 3D Odyssey** — Three.js scene with HDR bloom, feedback trails,
-  chromatic aberration, kaleidoscope skydome. Campaign: *Astral Fields*
-  → *Temple of the Third Eye*.
+  chromatic aberration, kaleidoscope skydome.
 
-Level progress, best scores, and settings are saved locally. Finishing a
-dream unlocks the next one. Nobody ever gets hurt in this game — when the
-hearts run out, the dream just drifts home and the pup wakes up cozy.
+**Each mode has its own 32-dream campaign** — 8 worlds × 4 levels,
+Super Mario World-style variety with a psychedelic twist: meadows,
+neon caverns, sky gardens with **bounce blooms**, mushroom forests,
+ghost parlors, prism peaks, geometric fortresses, and a star world.
+Every level hides **5 squeaky tennis balls** 🎾 (the dragon coins of
+this universe) alongside the cosmic-bone trail.
+
+Level progress, best scores, and tennis-ball finds are saved locally.
+Finishing a dream unlocks the next one. Nobody ever gets hurt in this
+game — when the hearts run out, the dream just drifts home and the pup
+wakes up cozy.
 
 ## Play it locally
 
